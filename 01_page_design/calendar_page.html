@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ボンボンドロップ発売・再入荷スケジュール【随時更新】</title>
+<style>
+  /* --- 基本スタイル設定 --- */
+  :root {
+    --primary-color: #ff66c4; /* メイン：ボンボンピンク */
+    --accent-color: #8a2be2;  /* アクセント：推し活パープル */
+    --bg-color: #fcfcfc;      /* 背景：ほぼ白 */
+    --text-color: #333;       /* 文字色 */
+    --border-radius: 12px;    /* 角丸の大きさ */
+    --success-color: #28a745; /* 成功色 */
+    --warning-color: #ffc107; /* 警告色 */
+    --danger-color: #dc3545;  /* 危険色 */
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    margin: 0; padding: 0;
+    background-color: var(--bg-color); color: var(--text-color);
+    line-height: 1.6;
+  }
+
+  /* ヘッダー */
+  header {
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: white; padding: 20px 15px; text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    position: relative;
+  }
+  header h1 { margin: 0; font-size: 1.4rem; letter-spacing: 1px; }
+  header p { margin: 5px 0 0; font-size: 0.9rem; opacity: 0.9; }
+
+  /* 戻るボタン */
+  .back-btn {
+    position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+    color: white; text-decoration: none; font-weight: bold; font-size: 1.2rem;
+  }
+  .back-btn:hover { opacity: 0.8; }
+
+  /* コンテナ */
+  .container {
+    max-width: 700px; margin: 0 auto; padding: 20px;
+  }
+
+  /* カードデザイン */
+  .card {
+    background: white; border-radius: var(--border-radius);
+    padding: 20px; margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  /* 見出し */
+  h2 { 
+    font-size: 1.1rem; color: var(--accent-color); margin-top: 0; 
+    display: flex; align-items: center; gap: 8px;
+  }
+  h3 { 
+    font-size: 1rem; border-left: 5px solid var(--primary-color); 
+    padding-left: 10px; margin: 0 0 15px 0; 
+  }
+
+  /* 最終更新時間 */
+  .last-update {
+    text-align: right; font-size: 0.8rem; color: #666; margin-bottom: 15px;
+  }
+
+  /* カレンダーグリッド */
+  .calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .calendar-header {
+    background-color: var(--accent-color);
+    color: white;
+    padding: 12px 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+  }
+
+  .calendar-day {
+    background-color: white;
+    padding: 8px 6px;
+    text-align: center;
+    position: relative;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .calendar-day:hover {
+    background-color: #f8f9fa;
+  }
+
+  .calendar-day.other-month {
+    background-color: #f8f9fa;
+    color: #999;
+  }
+
+  .calendar-day.today {
+    background-color: #fff3cd;
+    border: 2px solid var(--warning-color);
+  }
+
+  .day-number {
+    font-weight: bold;
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+
+  .day-status {
+    margin-top: auto;
+  }
+
+  .day-event {
+    font-size: 0.6rem;
+    line-height: 1.2;
+    margin: 2px 0;
+    padding: 1px 3px;
+    border-radius: 3px;
+    color: #333;
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid #ddd;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .day-event.online {
+    background-color: #e3f2fd;
+    border-color: #1da1f2;
+    color: #0d47a1;
+  }
+
+  .day-event.offline {
+    background-color: #fce4ec;
+    border-color: var(--primary-color);
+    color: #c2185b;
+  }
+
+  /* ステータス信号機 */
+  .status-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .status-online {
+    background-color: #1da1f2;
+    color: white;
+  }
+
+  .status-offline {
+    background-color: var(--primary-color);
+    color: white;
+  }
+
+  /* 凡例 */
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+  }
+
+  /* 詳細リスト */
+  .schedule-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .schedule-item {
+    border-left: 4px solid #eee;
+    padding: 15px 20px;
+    margin-bottom: 15px;
+    background: #fafafa;
+    border-radius: 0 8px 8px 0;
+    position: relative;
+  }
+
+  .schedule-item.online {
+    border-left-color: #1da1f2;
+    background: #f8fbff;
+  }
+
+  .schedule-item.offline {
+    border-left-color: var(--primary-color);
+    background: #fffafc;
+  }
+
+  .schedule-date {
+    font-weight: bold;
+    color: var(--accent-color);
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+
+  .schedule-title {
+    margin-bottom: 8px;
+    color: var(--text-color);
+  }
+
+  .schedule-source {
+    font-size: 0.8rem;
+    color: #666;
+    font-style: italic;
+  }
+
+  .schedule-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: bold;
+  }
+
+  .schedule-link:hover {
+    text-decoration: underline;
+  }
+
+  /* アラート */
+  .alert {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 5px solid;
+  }
+
+  .alert-warning {
+    background-color: #fff3cd;
+    border-left-color: var(--warning-color);
+    color: #856404;
+  }
+
+  .alert-info {
+    background-color: #d1ecf1;
+    border-left-color: #17a2b8;
+    color: #0c5460;
+  }
+
+  /* 月切り替えボタン */
+  .month-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .nav-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+  }
+
+  .nav-btn:hover {
+    background-color: #e055ac;
+    transform: translateY(-1px);
+  }
+
+  .nav-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .current-month {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--accent-color);
+  }
+
+  /* 広告枠 */
+  .ad-space {
+    background-color: #f0f0f0;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 0.8rem;
+    margin: 20px 0;
+    border-radius: 8px;
+  }
+
+  /* レスポンシブ対応 */
+  @media (max-width: 600px) {
+    .calendar {
+      font-size: 0.7rem;
+    }
+    
+    .calendar-day {
+      min-height: 70px;
+      padding: 6px 3px;
+    }
+
+    .day-event {
+      font-size: 0.55rem;
+      padding: 1px 2px;
+      margin: 1px 0;
+    }
+    
+    .legend {
+      gap: 10px;
+    }
+    
+    .month-navigation {
+      flex-direction: column;
+      gap: 10px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="top_page.html" class="back-btn">←</a>
+  <h1>📅 発売・再入荷スケジュール</h1>
+  <p>いつ買える？公式情報をまとめてお届け</p>
+</header>
+
+<div class="container">
+
+  <div class="last-update">
+    最終更新: 2025/12/30 15:30
+  </div>
+
+  <!-- アラート -->
+  <div class="alert alert-warning">
+    <strong>⚠️ 注意:</strong> 掲載情報は公式発表に基づいていますが、販売日時・内容は変更される可能性があります。購入前に公式サイトや各店舗への確認をお勧めします。
+  </div>
+
+  <div class="card">
+    <h2>📅 今月のカレンダー</h2>
+    
+    <!-- 月切り替えナビゲーション -->
+    <div class="month-navigation">
+      <button class="nav-btn" onclick="previousMonth()">← 前月</button>
+      <div class="current-month">2025年1月</div>
+      <button class="nav-btn" onclick="nextMonth()">次月 →</button>
+    </div>
+
+    <!-- 凡例 -->
+    <div class="legend">
+      <div class="legend-item">
+        <span class="status-badge status-online">🌐</span>
+        <span>オンライン販売（ECサイト・公式通販）</span>
+      </div>
+      <div class="legend-item">
+        <span class="status-badge status-offline">🏪</span>
+        <span>オフライン販売（全国店舗・実店舗）</span>
+      </div>
+    </div>
+
+    <!-- カレンダー -->
+    <div class="calendar">
+      <div class="calendar-header">日</div>
+      <div class="calendar-header">月</div>
+      <div class="calendar-header">火</div>
+      <div class="calendar-header">水</div>
+      <div class="calendar-header">木</div>
+      <div class="calendar-header">金</div>
+      <div class="calendar-header">土</div>
+
+      <!-- 12月の残り日 -->
+      <div class="calendar-day other-month">
+        <div class="day-number">29</div>
+      </div>
+      <div class="calendar-day other-month">
+        <div class="day-number">30</div>
+      </div>
+      <div class="calendar-day other-month today">
+        <div class="day-number">31</div>
+      </div>
+
+      <!-- 1月 -->
+      <div class="calendar-day">
+        <div class="day-number">1</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">2</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">3</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">4</div>
+      </div>
+
+      <div class="calendar-day">
+        <div class="day-number">5</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">6</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">7</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">8</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">9</div>
+      </div>
+      <div class="calendar-day" onclick="showDetails('2025-01-10')">
+        <div class="day-number">10</div>
+        <div class="day-event offline">サンリオコラボ第2弾</div>
+        <div class="day-event offline">全国店舗発売</div>
+        <div class="day-status">
+          <span class="status-badge status-offline">🏪</span>
+        </div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">11</div>
+      </div>
+
+      <div class="calendar-day">
+        <div class="day-number">12</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">13</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">14</div>
+      </div>
+      <div class="calendar-day" onclick="showDetails('2025-01-15')">
+        <div class="day-number">15</div>
+        <div class="day-event online">公式オンライン</div>
+        <div class="day-event online">追加販売開始</div>
+        <div class="day-status">
+          <span class="status-badge status-online">🌐</span>
+        </div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">16</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">17</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">18</div>
+      </div>
+
+      <div class="calendar-day">
+        <div class="day-number">19</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">20</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">21</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">22</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">23</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">24</div>
+      </div>
+      <div class="calendar-day" onclick="showDetails('2025-01-25')">
+        <div class="day-number">25</div>
+        <div class="day-event offline">コラボカフェ限定</div>
+        <div class="day-event offline">店舗販売開始</div>
+        <div class="day-status">
+          <span class="status-badge status-offline">🏪</span>
+        </div>
+      </div>
+
+      <div class="calendar-day">
+        <div class="day-number">26</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">27</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">28</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">29</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">30</div>
+      </div>
+      <div class="calendar-day">
+        <div class="day-number">31</div>
+      </div>
+
+      <!-- 2月の始まり -->
+      <div class="calendar-day other-month">
+        <div class="day-number">1</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ad-space">
+    スポンサーリンク (広告枠)
+  </div>
+
+  <div class="card">
+    <h2>📋 詳細スケジュール一覧</h2>
+    
+    <ul class="schedule-list">
+      <li class="schedule-item offline">
+        <div class="schedule-date">1月10日（金）</div>
+        <div class="schedule-title">
+          <strong>【店舗販売】サンリオコラボ第2弾 全国発売開始</strong>
+        </div>
+        <div class="schedule-source">
+          情報元: <a href="#" class="schedule-link">公式Twitter (@bonnbondrop_official)</a>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.9rem;">
+          全国のドンキホーテ、ロフト、ハンズにて開店と同時に販売開始。一部店舗では抽選制を導入。
+        </div>
+      </li>
+
+      <li class="schedule-item online">
+        <div class="schedule-date">1月15日（水）10:00</div>
+        <div class="schedule-title">
+          <strong>【オンライン販売】公式オンラインストア追加販売</strong>
+        </div>
+        <div class="schedule-source">
+          情報元: <a href="#" class="schedule-link">公式サイト お知らせ</a>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.9rem;">
+          店舗で完売したサンリオコラボ第2弾を公式オンラインストアで追加販売。数量限定。
+        </div>
+      </li>
+
+      <li class="schedule-item offline">
+        <div class="schedule-date">1月25日（土）</div>
+        <div class="schedule-title">
+          <strong>【コラボカフェ限定】池袋・原宿店舗限定販売開始</strong>
+        </div>
+        <div class="schedule-source">
+          情報元: <a href="#" class="schedule-link">公式Instagram</a>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.9rem;">
+          コラボカフェ限定デザインのボンボンドロップを池袋・原宿の実店舗で販売開始。
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>🔔 アラート設定</h3>
+    <div class="alert alert-info">
+      <strong>💡 Tip:</strong> 最新情報をいち早く知りたい方は、公式アカウントの通知をONにすることをお勧めします。
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px;">
+      <a href="https://twitter.com/bonnbondrop_official" target="_blank" 
+         style="background: #1da1f2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+        🐦 公式Twitterをフォロー
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<footer style="text-align: center; padding: 20px; color: #888; font-size: 0.8rem; border-top: 1px solid #eee; margin-top: 20px;">
+  <p>© 2025 Trend Stock Map All Rights Reserved.</p>
+</footer>
+
+<script>
+function showDetails(date) {
+  alert('詳細ページへ移動します: ' + date);
+  // 実際の実装では、該当日の詳細ページにリンク
+}
+
+function previousMonth() {
+  alert('前月のカレンダーを表示');
+  // 実際の実装では、月を変更してカレンダーを再描画
+}
+
+function nextMonth() {
+  alert('次月のカレンダーを表示');
+  // 実際の実装では、月を変更してカレンダーを再描画
+}
+
+// ページ読み込み時の処理
+document.addEventListener('DOMContentLoaded', function() {
+  // 今日の日付をハイライト
+  const today = new Date();
+  const currentDate = today.getDate();
+  
+  // 実際の実装では、現在の月日に基づいてハイライトを設定
+  console.log('Calendar loaded for current month');
+});
+</script>
+
+</body>
+</html>
