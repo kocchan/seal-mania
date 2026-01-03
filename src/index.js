@@ -8,7 +8,6 @@ async function main() {
     // 1. ファイル・設定のロード
     const queries = loadConfig('./config/queries.json');
     const ngConfig = loadConfig('./config/ng_words.json');
-    const officialAccounts = loadConfig('./config/official_accounts.json');
     const blacklistSet = loadBlacklist(); // Set<string>
 
     // 既存データをロードし、IDのSetを作成 (重複チェック用)
@@ -27,12 +26,6 @@ async function main() {
     let banCount = 0;
 
     for (const tweet of rawTweets) {
-        // Step 0: 公式アカウントのみフィルター
-        if (!officialAccounts.includes(tweet.userId)) {
-            discardedCount++;
-            continue;
-        }
-
         // Step 1: ブラックリストチェック
         if (isBlacklisted(tweet.userId, blacklistSet)) {
             discardedCount++;
