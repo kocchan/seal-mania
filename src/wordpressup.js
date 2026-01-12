@@ -1,58 +1,66 @@
 import 'dotenv/config';
 import axios from 'axios';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 // =====================================
-// 設定
+// ⚙️ 設定: カテゴリーIDマップ
 // =====================================
+// スクリーンショットに基づき、実際のWordPress IDを設定します。
+// ※未設定の県はデフォルト(1)になるため、必要に応じて管理画面でIDを確認し書き換えてください。
 const CATEGORY_MAP = {
-    "北海道": 1,
-    "青森": 2,
-    "岩手": 3,
-    "宮城": 4,
-    "秋田": 5,
-    "山形": 6,
-    "福島": 7,
-    "茨城": 8,
-    "栃木": 9,
-    "群馬": 10,
-    "埼玉": 11,
-    "千葉": 12,
-    "東京": 13,
-    "神奈川": 14,
-    "新潟": 15,
-    "富山": 16,
-    "石川": 17,
-    "福井": 18,
-    "山梨": 19,
-    "長野": 20,
-    "岐阜": 21,
-    "静岡": 22,
-    "愛知": 23,
-    "三重": 24,
-    "滋賀": 25,
-    "京都": 26,
-    "大阪": 27,
-    "兵庫": 28,
-    "奈良": 29,
-    "和歌山": 30,
-    "鳥取": 31,
-    "島根": 32,
-    "岡山": 33,
-    "広島": 34,
-    "山口": 35,
-    "徳島": 36,
-    "香川": 37,
-    "愛媛": 38,
-    "高知": 39,
-    "福岡": 40,
-    "佐賀": 41,
-    "長崎": 42,
-    "熊本": 43,
-    "大分": 44,
-    "宮崎": 45,
-    "鹿児島": 46,
-    "沖縄": 47
+    "公式情報": 1,
+    "目撃・在庫情報": 2,
+    "ランキング": 3,
+    "オンライン発売情報": 4,
+    "自作シール情報": 5,
+    "東京": 7, "東京都": 7,
+    "埼玉": 8, "埼玉県": 8,
+    "大阪": 9, "大阪府": 9,
+    "宮城": 10, "宮城県": 10,
+    "北海道": 11,
+    "青森": 12, "青森県": 12,
+    "岩手": 13, "岩手県": 13,
+    "秋田": 14, "秋田県": 14,
+    "山形": 15, "山形県": 15,
+    "福島": 16, "福島県": 16,
+    "茨城": 17, "茨城県": 17,
+    "栃木": 18, "栃木県": 18,
+    "群馬": 19, "群馬県": 19,
+    "千葉": 20, "千葉県": 20,
+    "神奈川": 21, "神奈川県": 21,
+    "新潟": 22, "新潟県": 22,
+    "富山": 23, "富山県": 23,
+    "石川": 24, "石川県": 24,
+    "福井": 25, "福井県": 25,
+    "山梨": 26, "山梨県": 26,
+    "長野": 27, "長野県": 27,
+    "岐阜": 28, "岐阜県": 28,
+    "静岡": 29, "静岡県": 29,
+    "愛知": 30, "愛知県": 30,
+    "三重": 31, "三重県": 31,
+    "滋賀": 32, "滋賀県": 32,
+    "京都": 33, "京都府": 33,
+    "兵庫": 34, "兵庫県": 34,
+    "奈良": 35, "奈良県": 35,
+    "和歌山": 36, "和歌山県": 36,
+    "鳥取": 37, "鳥取県": 37,
+    "島根": 38, "島根県": 38,
+    "岡山": 39, "岡山県": 39,
+    "広島": 40, "広島県": 40,
+    "山口": 41, "山口県": 41,
+    "徳島": 42, "徳島県": 42,
+    "香川": 43, "香川県": 43,
+    "愛媛": 44, "愛媛県": 44,
+    "高知": 45, "高知県": 45,
+    "福岡": 46, "福岡県": 46,
+    "佐賀": 47, "佐賀県": 47,
+    "長崎": 48, "長崎県": 48,
+    "熊本": 49, "熊本県": 49,
+    "大分": 50, "大分県": 50,
+    "宮崎": 51, "宮崎県": 51,
+    "鹿児島": 52, "鹿児島県": 52,
+    "沖縄": 53, "沖縄県": 53
 };
 
 // =====================================
@@ -97,7 +105,6 @@ function generateHtmlContent(data) {
     </p>
     `;
 }
-
 // =====================================
 // WordPressへ投稿
 // =====================================
@@ -111,25 +118,34 @@ async function postToWordPress(data) {
     // 認証ヘッダーの作成
     const credentials = Buffer.from(`${process.env.WP_USER}:${process.env.WP_APP_PASSWORD}`).toString('base64');
 
-    // カテゴリーIDの取得 (なければデフォルトID: 1)
-    const categoryId = CATEGORY_MAP[data.prefecture] || 1;
+    // カテゴリーIDの取得
+    // マップに県名があればそのID、なければ「目撃・在庫情報(ID:2)」をデフォルトにする
+    const categoryId = CATEGORY_MAP[data.prefecture] || 2;
 
     // 送信データの構築
     const payload = {
         title: `【${data.prefecture}/${data.city}】${data.shop_name}にて${data.product_name}の目撃情報`,
         content: generateHtmlContent(data),
         status: 'draft', // 下書きとして作成
-        categories: [categoryId],
+        categories: [categoryId], // 都道府県カテゴリーを設定
+
+        // ★ ACF (カスタムフィールド) データ
+        // スクリーンショット (15.33.31.png 等) のフィールド名と一致させています
         acf: {
-            location_name: data.city,
-            shop_name: data.shop_name,
-            shop_address: data.shop_address,
-            source_url: data.source_url
+            // [Group: 目撃情報詳細]
+            shop_name: data.shop_name,      // 店舗名 (Text)
+            shop_address: data.shop_address,// 住所 (Text)
+
+            // [Group: Scraper Data] (もし存在する場合)
+            location_name: data.city,       // エリア・店舗名
+            source_url: data.source_url     // 情報ソースURL
+
+            // expectation_rate (期待度) は送信しません
         }
     };
 
     try {
-        console.log(`🚀 WordPress投稿中: ${payload.title}`);
+        console.log(`🚀 WordPress投稿中: ${payload.title} (CatID: ${categoryId})`);
 
         const response = await axios.post(`${process.env.WP_API_URL}/posts`, payload, {
             headers: {
@@ -148,6 +164,11 @@ async function postToWordPress(data) {
         if (error.response) {
             console.error(`   ステータス: ${error.response.status}`);
             console.error(`   詳細: ${JSON.stringify(error.response.data, null, 2)}`);
+
+            // ACFの設定ミスの場合によく出るエラーへのヒント
+            if (error.response.data.code === 'acf_rest_invalid_fields') {
+                console.error('   ⚠️ ヒント: ACF設定で「REST API に表示」がOFFになっているか、フィールド名が間違っています。');
+            }
         } else {
             console.error(`   ${error.message}`);
         }
@@ -161,11 +182,15 @@ async function postToWordPress(data) {
 async function postFromJsonFile(filePath, skipUploaded = true) {
     try {
         console.log(`📄 JSONファイル読み込み: ${filePath}`);
+        if (!fs.existsSync(filePath)) {
+            console.error(`❌ ファイルが見つかりません: ${filePath}`);
+            return [];
+        }
+
         const jsonData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 
         // 配列の場合は各要素を順次投稿
         if (Array.isArray(jsonData)) {
-            // アップロード済みの記事をフィルタリング
             const articlesToUpload = skipUploaded
                 ? jsonData.filter(item => !item.uploaded)
                 : jsonData;
@@ -189,7 +214,6 @@ async function postFromJsonFile(filePath, skipUploaded = true) {
                 const result = await postToWordPress(article);
 
                 if (result) {
-                    // 投稿成功した場合、元のJSONデータを更新
                     const articleIndex = jsonData.findIndex(item => item.source_url === article.source_url);
                     if (articleIndex !== -1) {
                         jsonData[articleIndex].uploaded = true;
@@ -199,18 +223,15 @@ async function postFromJsonFile(filePath, skipUploaded = true) {
                 }
 
                 results.push(result);
-
-                // API制限を避けるため、少し待機
+                // API制限回避の待機
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            // 更新されたJSONを保存
             fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2), 'utf-8');
             console.log(`\n💾 アップロード状況を保存: ${filePath}`);
 
             return results;
         } else {
-            // 単一オブジェクトの場合
             return await postToWordPress(jsonData);
         }
     } catch (error) {
@@ -223,31 +244,22 @@ async function postFromJsonFile(filePath, skipUploaded = true) {
 // メイン処理
 // =====================================
 async function main() {
-    // コマンドライン引数からファイルパスを取得
-    const filePath = process.argv[2] || './data/wordpressup_file/sample.json';
-    const skipUploaded = process.argv[3] !== '--all'; // --all オプションで全記事を投稿
+    const args = process.argv.slice(2);
+    const filePath = args[0] || 'output_articles.json';
+    const skipUploaded = !args.includes('--all');
 
     console.log('🚀 WordPress投稿ツール起動');
     console.log(`📋 対象ファイル: ${filePath}`);
-    console.log(`⚙️  モード: ${skipUploaded ? 'アップロード済みをスキップ' : '全記事を投稿'}\n`);
 
-    const results = await postFromJsonFile(filePath, skipUploaded);
-
-    if (results && results.length > 0) {
-        const successCount = results.filter(r => r !== null).length;
-        console.log(`\n✅ 処理完了: ${successCount}/${results.length}件の投稿に成功しました`);
-    } else {
-        console.log('\n✅ 処理完了');
-    }
+    await postFromJsonFile(filePath, skipUploaded);
 }
 
-// スクリプトとして直接実行された場合のみmainを実行
-if (import.meta.url === `file://${process.argv[1]}`) {
+// ESモジュールでのスクリプト直接実行判定
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
     main().catch(error => {
         console.error('❌ エラー発生:', error);
         process.exit(1);
     });
 }
 
-// モジュールとしてエクスポート
 export { postToWordPress, postFromJsonFile };
