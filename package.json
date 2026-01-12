@@ -3,9 +3,16 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/scraping.js",
+    "generate": "node src/article_generator.js",
+    "wp": "node src/wordpressup.js data/wordpressup_file/generated_articles.json",
+    "wp:all": "node src/wordpressup.js data/wordpressup_file/generated_articles.json --all",
+    "wp:sample": "node src/wordpressup.js data/wordpressup_file/sample.json"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
     "playwright": "^1.40.0"
   }
 }
