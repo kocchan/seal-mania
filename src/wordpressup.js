@@ -118,7 +118,7 @@ async function postToWordPress(data) {
     const payload = {
         title: `【${data.prefecture || "不明"}/${data.city || ""}】${data.shop_name}にて${data.product_name}の目撃情報`,
         content: generateHtmlContent(data),
-        status: 'draft', // 下書きで投稿
+        status: 'publish', // 公開投稿
         categories: [categoryId],
         acf: {
             shop_name: data.shop_name,
