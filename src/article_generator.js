@@ -8,8 +8,20 @@ import 'dotenv/config';
 // =====================================
 const CONFIG = {
     model: 'gemini-3-flash-preview',
-    referenceDate: new Date().toISOString().split('T')[0] // 今日の日付
+    referenceDate: new Date().toISOString().split('T')[0]
 };
+
+// =====================================
+// 🛠️ ユーティリティ関数
+// =====================================
+
+/**
+ * 🇯🇵 現在の日本時間(JST)をISO文字列で返す関数
+ */
+function getNowJST() {
+    const jstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    return jstDate.toISOString().replace('Z', '+09:00');
+}
 
 // =====================================
 // Gemini API初期化
@@ -23,7 +35,7 @@ function initializeGemini() {
 }
 
 // =====================================
-// JSONスキーマ定義 (Gemini用)
+// JSONスキーマ定義
 // =====================================
 const ARTICLE_SCHEMA = {
     type: SchemaType.ARRAY,
@@ -40,8 +52,8 @@ const ARTICLE_SCHEMA = {
             status_text: { type: SchemaType.STRING },
             confidence_memo: { type: SchemaType.STRING },
             source_url: { type: SchemaType.STRING },
-            source_tweet_id: { type: SchemaType.STRING }, // 追跡用ID
-            is_prediction: { type: SchemaType.BOOLEAN }, // スキーマに追加
+            source_tweet_id: { type: SchemaType.STRING },
+            is_prediction: { type: SchemaType.BOOLEAN },
         },
         required: ["is_sighting", "shop_name", "shop_address", "source_url"]
     }
@@ -51,15 +63,13 @@ const ARTICLE_SCHEMA = {
 // プロンプト生成
 // =====================================
 function generatePrompt(tweets) {
-    // ツイート情報を整形（IDを付与してGeminiに渡す）
     const tweetData = tweets.map(t => ({
         id: t.tweet_id,
         text: t.text,
         url: t.url,
-        time: t.post_time // JST時間
+        time: t.post_time
     }));
 
-    // ▼ 修正: referenceDate を CONFIG.referenceDate に変更
     return `
 あなたは「人気商品の在庫・目撃情報」を収集する敏腕リポーターAIです。
 以下のツイートリスト（JSON）を分析し、**「具体的な店舗名（または具体的な施設名）」が含まれる有効な目撃情報のみ**を抽出してください。
@@ -73,7 +83,7 @@ function generatePrompt(tweets) {
 
 2. **フィルタリング**: 「どこにもない」「欲しい」「ネットで見た」などのツイートは除外し、実際に店舗で「見た」「買った」「入荷していた」という情報だけを抽出してください。
 
-3. **都道府県・市区町村**: 住所から 'prefecture' (都道府県) と 'city' (市区町村) を埋めてください。
+3. **都道府県・市区町村**: 住所から 'prefecture' (都道府県) と 'city' (市区町村) を埋めてください。特定できない場合は 抽出対象ではありません。
 
 4. **日時**: ツイートの 'time' (JST) を考慮し、目撃された具体的な日付・時間帯を 'sighting_time' に記述してください（基準日: ${CONFIG.referenceDate}）。
 
@@ -98,9 +108,6 @@ ${JSON.stringify(tweetData, null, 2)}
 // DynamoDB操作
 // =====================================
 
-/**
- * 未処理のツイートを取得する
- */
 async function fetchUnprocessedTweets() {
     try {
         const result = await dbClient.send(new ScanCommand({
@@ -117,9 +124,6 @@ async function fetchUnprocessedTweets() {
     }
 }
 
-/**
- * 処理済みフラグを立てる
- */
 async function markAsProcessed(tweetIds) {
     if (tweetIds.length === 0) return;
 
@@ -139,23 +143,35 @@ async function markAsProcessed(tweetIds) {
     }
 }
 
-/**
- * 生成された記事データを保存する
- */
 async function saveArticles(articles) {
     if (articles.length === 0) return;
 
-    console.log(`💾 ${articles.length}件の記事データをDBに保存中...`);
+    // ▼ 追加: 都道府県(prefecture) や 市区町村(city) が null のデータは除外する
+    const validArticlesToSave = articles.filter(article =>
+        article.prefecture && article.city
+    );
 
-    for (const article of articles) {
+    const discardedCount = articles.length - validArticlesToSave.length;
+    if (discardedCount > 0) {
+        console.log(`🗑️ 住所不明のため ${discardedCount} 件を破棄しました。`);
+    }
+
+    if (validArticlesToSave.length === 0) {
+        console.log("⚠️ 保存対象の記事はありませんでした。");
+        return;
+    }
+
+    console.log(`💾 ${validArticlesToSave.length}件の記事データをDBに保存中...`);
+
+    for (const article of validArticlesToSave) {
         try {
             await dbClient.send(new PutCommand({
                 TableName: "Articles",
                 Item: {
                     source_url: article.source_url,
                     ...article,
-                    created_at: new Date().toISOString(),
-                    is_posted: false // WordPress投稿待ちフラグ
+                    created_at: getNowJST(), // 日本時間
+                    is_posted: false
                 },
                 ConditionExpression: "attribute_not_exists(source_url)"
             }));
