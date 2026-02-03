@@ -1,334 +1,296 @@
 import { chromium } from 'playwright';
-import fs from 'fs';
+import { PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { dbClient } from "./utils.js";
+import { CONFIG } from "./config.js";
 
-// =====================================
-// 設定
-// =====================================
-const CONFIG = {
-    dataDir: './data',
-    tweetsFile: './data/tweets.json',
-    blacklistFile: './data/blacklist.txt',
-    queriesFile: './config/queries.json',
-    ngWordsFile: './config/ng_words.json',
-    maxSavedTweets: 2000,
-    headless: true,
-    pageTimeout: 3000,
-    queryDelay: 1000
-};
+// ==========================================
+// 🛠️ ユーティリティ関数
+// ==========================================
 
-// =====================================
-// ファイル操作
-// =====================================
-function ensureDataDir() {
-    if (!fs.existsSync(CONFIG.dataDir)) {
-        fs.mkdirSync(CONFIG.dataDir, { recursive: true });
-    }
-}
-
-function loadJSON(filePath) {
+async function loadBlacklist() {
     try {
-        return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        const result = await dbClient.send(new ScanCommand({
+            TableName: "Blacklist",
+            ProjectionExpression: "user_id"
+        }));
+        const set = new Set(result.Items.map(item => item.user_id));
+        console.log(`📋 ブラックリスト読み込み: ${set.size}件`);
+        return set;
     } catch (e) {
-        console.error(`Error loading ${filePath}:`, e.message);
-        return filePath.includes('queries') ? [] : {};
+        console.error("⚠️ ブラックリスト取得失敗:", e.message);
+        return new Set();
     }
 }
 
-function loadBlacklist() {
-    if (!fs.existsSync(CONFIG.blacklistFile)) return new Set();
-    const content = fs.readFileSync(CONFIG.blacklistFile, 'utf-8');
-    return new Set(content.split('\n').map(line => line.trim()).filter(Boolean));
+/**
+ * 🕒 正確な日本時間(JST)のISO文字列を生成する関数
+ * 環境(PC/Cloud)のタイムゾーンに依存しないよう、UTCタイムスタンプから計算します。
+ */
+function getJSTISOString(dateObj) {
+    // 渡されたDateオブジェクト(UTC相当)から、JSTの日時成分を取り出す
+    const y = dateObj.getUTCFullYear();
+    const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getUTCDate()).padStart(2, '0');
+    const h = String(dateObj.getUTCHours()).padStart(2, '0');
+    const min = String(dateObj.getUTCMinutes()).padStart(2, '0');
+    const s = String(dateObj.getUTCSeconds()).padStart(2, '0');
+    const ms = String(dateObj.getUTCMilliseconds()).padStart(3, '0');
+
+    return `${y}-${m}-${d}T${h}:${min}:${s}.${ms}+09:00`;
 }
 
-function appendToBlacklist(userId) {
-    fs.appendFileSync(CONFIG.blacklistFile, `${userId}\n`, 'utf-8');
-}
+/**
+ * 🕒 日本語の日時表記を解析してJST文字列を返す
+ */
+function parsePostTime(timeStr) {
+    // 1. 現在時刻(UTC)を取得し、強制的に9時間足す
+    // これにより、Dateオブジェクトの中身(UTCメソッドの結果)が「日本時間」になる
+    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
 
-function loadSavedTweets() {
-    if (!fs.existsSync(CONFIG.tweetsFile)) return [];
+    if (!timeStr) return getJSTISOString(nowJST);
+
     try {
-        return JSON.parse(fs.readFileSync(CONFIG.tweetsFile, 'utf-8'));
-    } catch (e) {
-        console.error('Error loading tweets:', e.message);
-        return [];
-    }
-}
-
-function saveTweets(tweets) {
-    fs.writeFileSync(CONFIG.tweetsFile, JSON.stringify(tweets, null, 2), 'utf-8');
-}
-
-// =====================================
-// フィルタリング
-// =====================================
-function shouldFilterOut(tweet, context) {
-    const { blacklistSet, savedTweetIds, processedTexts, ngConfig } = context;
-
-    // ブラックリストチェック
-    if (blacklistSet.has(tweet.userId)) {
-        return { filtered: true, reason: 'blacklisted' };
-    }
-
-    // ID重複チェック
-    if (savedTweetIds.has(tweet.id)) {
-        return { filtered: true, reason: 'duplicate_id' };
-    }
-
-    // テキスト重複チェック
-    const textHash = tweet.text.slice(0, 100);
-    if (processedTexts.has(textHash)) {
-        return { filtered: true, reason: 'duplicate_text' };
-    }
-    processedTexts.add(textHash);
-
-    // URL存在チェック
-    if (!tweet.url) {
-        return { filtered: true, reason: 'no_url' };
-    }
-
-    // NGワード/スパムチェック
-    const spamCheck = checkForSpam(tweet, ngConfig, blacklistSet);
-    if (spamCheck.isSpam) {
-        return { filtered: true, reason: 'spam', ...spamCheck };
-    }
-
-    return { filtered: false };
-}
-
-function checkForSpam(tweet, ngConfig, blacklistSet) {
-    const { text, userId } = tweet;
-
-    // テキストNGワードチェック
-    for (const ngWord of ngConfig.texts) {
-        if (text.includes(ngWord)) {
-            autoBan(userId, blacklistSet, `NGワード: ${ngWord}`);
-            return { isSpam: true, ngWord };
+        // パターン1: "XX分前"
+        const minMatch = timeStr.match(/(\d+)分前/);
+        if (minMatch) {
+            const mins = parseInt(minMatch[1], 10);
+            nowJST.setUTCMinutes(nowJST.getUTCMinutes() - mins);
+            return getJSTISOString(nowJST);
         }
-    }
 
-    // URL NGワードチェック
-    const urls = extractURLsFromText(text);
-    for (const url of urls) {
-        for (const ngUrl of ngConfig.urls) {
-            if (url.includes(ngUrl)) {
-                autoBan(userId, blacklistSet, `スパムURL: ${ngUrl}`);
-                return { isSpam: true, ngUrl };
+        // パターン2: "XX時間前"
+        const hourMatch = timeStr.match(/(\d+)時間前/);
+        if (hourMatch) {
+            const hours = parseInt(hourMatch[1], 10);
+            nowJST.setUTCHours(nowJST.getUTCHours() - hours);
+            return getJSTISOString(nowJST);
+        }
+
+        // パターン3: "XX秒前"
+        const secMatch = timeStr.match(/(\d+)秒前/);
+        if (secMatch) {
+            const secs = parseInt(secMatch[1], 10);
+            nowJST.setUTCSeconds(nowJST.getUTCSeconds() - secs);
+            return getJSTISOString(nowJST);
+        }
+
+        // パターン4: "HH:mm" (例: 17:22)
+        const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+            const hours = parseInt(timeMatch[1], 10);
+            const mins = parseInt(timeMatch[2], 10);
+
+            // JSTとして時間をセット
+            const targetDate = new Date(nowJST.getTime());
+            targetDate.setUTCHours(hours, mins, 0, 0);
+
+            // 未来の時間になってしまったら「昨日」と判定
+            if (targetDate.getTime() > nowJST.getTime()) {
+                targetDate.setUTCDate(targetDate.getUTCDate() - 1);
             }
+            return getJSTISOString(targetDate);
         }
+
+        // パターン5: "M月D日" (例: 2月3日)
+        const dateMatch = timeStr.match(/(\d+)月(\d+)日/);
+        if (dateMatch) {
+            const month = parseInt(dateMatch[1], 10) - 1;
+            const day = parseInt(dateMatch[2], 10);
+
+            const targetDate = new Date(nowJST.getTime());
+            targetDate.setUTCMonth(month, day);
+
+            // 未来の日付なら去年のことと判定
+            if (targetDate.getTime() > nowJST.getTime()) {
+                targetDate.setUTCFullYear(targetDate.getUTCFullYear() - 1);
+            }
+            return getJSTISOString(targetDate);
+        }
+
+    } catch (e) {
+        console.warn(`⚠️ 時間変換エラー: ${timeStr}`);
     }
 
-    return { isSpam: false };
+    return getJSTISOString(nowJST);
 }
 
-function extractURLsFromText(text) {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.match(urlRegex) || [];
-}
+/**
+ * 🚫 ユーザーを自動BANする関数
+ */
+async function autoBanUser(userId, reason) {
+    try {
+        console.log(`🚫 AutoBAN: ${userId} (理由: ${reason})`);
+        const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
 
-function autoBan(userId, blacklistSet, reason) {
-    if (!blacklistSet.has(userId)) {
-        console.log(`🚫 AutoBAN: ${userId} - ${reason}`);
-        blacklistSet.add(userId);
-        appendToBlacklist(userId);
+        await dbClient.send(new PutCommand({
+            TableName: "Blacklist",
+            Item: {
+                user_id: userId,
+                reason: reason,
+                created_at: getJSTISOString(nowJST)
+            }
+        }));
+        return true;
+    } catch (e) {
+        console.error(`❌ BAN失敗 (${userId}):`, e.message);
+        return false;
     }
 }
 
-// =====================================
-// スクレイピング
-// =====================================
-async function scrapeYahooRealtime(queries, batchInfo) {
-    const browser = await chromium.launch({ headless: CONFIG.headless });
+async function saveTweet(tweet, calculatedTime) {
+    try {
+        const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
+
+        await dbClient.send(new PutCommand({
+            TableName: "RawTweets",
+            Item: {
+                tweet_id: tweet.id,
+                text: tweet.text,
+                user_id: tweet.userId,
+                url: tweet.url,
+                post_time: calculatedTime,  // 計算済みの正確なJST
+                post_time_str: tweet.postTime || "",
+                images: tweet.images || [],
+                hashtags: tweet.hashtags || [],
+                fetched_at: getJSTISOString(nowJST), // 実行時刻もJST
+                is_processed: false,
+                expire_at: Math.floor(Date.now() / 1000) + CONFIG.ttl
+            },
+            ConditionExpression: "attribute_not_exists(tweet_id)"
+        }));
+        return true;
+    } catch (e) {
+        if (e.name === 'ConditionalCheckFailedException') {
+            return false;
+        }
+        console.error(`❌ 保存エラー (${tweet.id}):`, e.message);
+        return false;
+    }
+}
+
+// ==========================================
+// 🤖 メイン処理
+// ==========================================
+async function scrapeYahooRealtime() {
+    console.log('🚀 スクレイピング開始 (完全JST対応版)');
+
+    const blacklist = await loadBlacklist();
+    const officialSet = new Set(CONFIG.officialAccounts);
+
+    const browser = await chromium.launch({ headless: CONFIG.scraping.headless });
     const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
     const page = await context.newPage();
 
-    let allResults = [];
+    let totalSaved = 0;
+    let totalBanned = 0;
 
-    for (const query of queries) {
+    for (const query of CONFIG.queries) {
         try {
-            console.log(`🔍 検索中: ${query}`);
+            console.log(`\n🔍 検索中: "${query}"`);
             const url = `https://search.yahoo.co.jp/realtime/search?p=${encodeURIComponent(query)}&ei=UTF-8`;
 
             await page.goto(url, { waitUntil: 'domcontentloaded' });
-            await page.waitForTimeout(CONFIG.pageTimeout);
+            await page.waitForTimeout(3000);
 
-            const tweets = await page.evaluate((batchInfo) => {
+            const tweets = await page.evaluate(() => {
+                const items = document.querySelectorAll('div[class*="Tweet_body"], div[class*="tweet"], article');
                 const results = [];
-                const selectors = [
-                    'div[class*="Tweet_body"]',
-                    'div[class*="tweet"]',
-                    'article'
-                ];
 
-                let items = [];
-                for (const selector of selectors) {
-                    items = document.querySelectorAll(selector);
-                    if (items.length > 0) break;
-                }
+                items.forEach(element => {
+                    let container = element;
+                    if (element.className.includes('Tweet_body')) {
+                        container = element.closest('div') || element.parentElement || element;
+                    }
 
-                items.forEach((element, index) => {
-                    try {
-                        let container = element;
-                        if (element.className.includes('Tweet_body')) {
-                            container = element.closest('div') || element.parentElement || element;
+                    const textElement = container.querySelector('[class*="Tweet_body"]') ||
+                        container.querySelector('[class*="text"]') ||
+                        container;
+                    const text = (textElement.innerText || textElement.textContent || '').trim();
+
+                    if (!text) return;
+
+                    const links = Array.from(container.querySelectorAll('a'));
+                    let id = "", userId = "", url = "";
+
+                    for (const link of links) {
+                        if (link.href.includes('/status/')) {
+                            url = link.href;
+                            const parts = link.href.split('/');
+                            id = parts[parts.length - 1].split('?')[0];
+                            userId = parts[parts.length - 3];
+                            break;
                         }
+                    }
 
-                        // テキスト抽出
-                        const textElement = container.querySelector('[class*="Tweet_body"]') ||
-                            container.querySelector('[class*="text"]') ||
-                            container;
-                        const text = (textElement.innerText || textElement.textContent || '').trim();
-
-                        if (!text) return;
-
-                        // リンク情報抽出
-                        const allLinks = Array.from(container.querySelectorAll('a'));
-                        let tweetId = null;
-                        let userId = null;
-                        let tweetUrl = null;
-
-                        for (const link of allLinks) {
-                            const href = link.href;
-                            if ((href.includes('twitter.com') || href.includes('x.com')) && href.includes('/status/')) {
-                                tweetUrl = href;
-                                const urlParts = href.split('/');
-                                const statusIndex = urlParts.findIndex(part => part === 'status');
-                                if (statusIndex > 0 && statusIndex < urlParts.length - 1) {
-                                    userId = urlParts[statusIndex - 1];
-                                    tweetId = urlParts[statusIndex + 1].split('?')[0].split('#')[0];
-                                }
-                                break;
-                            }
+                    const timeElements = container.querySelectorAll('time, [class*="time"], [class*="date"], span, a');
+                    let postTime = "";
+                    for (const el of timeElements) {
+                        const t = (el.innerText || el.textContent || "").trim();
+                        if (t.match(/(\d+[分時日秒]前|\d{1,2}:\d{2}|[昨今]日)/)) {
+                            postTime = t;
+                            break;
                         }
+                    }
 
-                        // フォールバック
-                        if (!tweetId) tweetId = `yahoo_${Date.now()}_${index}`;
-                        if (!userId) userId = `unknown_${index}`;
+                    const images = Array.from(container.querySelectorAll('img'))
+                        .map(img => img.src)
+                        .filter(src => src && !src.includes('data:image') && !src.includes('icon'));
 
-                        // 時間情報
-                        const timeElements = container.querySelectorAll('time, [class*="time"], [class*="date"]');
-                        let postTime = null;
-                        for (const el of timeElements) {
-                            const text = el.textContent.trim();
-                            if (text && (text.includes('分前') || text.includes('時間前') || text.includes('日前') || text.includes(':'))) {
-                                postTime = text;
-                                break;
-                            }
-                        }
+                    const hashtags = (text.match(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g) || []);
 
-                        // 画像情報
-                        const images = Array.from(container.querySelectorAll('img'))
-                            .map(img => ({
-                                src: img.src,
-                                alt: img.alt || ''
-                            }))
-                            .filter(img => img.src && !img.src.includes('data:image'));
-
-                        // ハッシュタグ
-                        const hashtags = (text.match(/#[\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g) || []);
-
-                        results.push({
-                            id: tweetId,
-                            userId: userId,
-                            text: text,
-                            url: tweetUrl,
-                            postTime: postTime,
-                            fetchedAt: new Date().toISOString(),
-                            batchId: batchInfo.batchId,
-                            batchDate: batchInfo.batchDate,
-                            images: images,
-                            hashtags: hashtags
-                        });
-                    } catch (err) {
-                        console.error(`Error processing item ${index}:`, err.message);
+                    if (text && id) {
+                        results.push({ id, userId, text, url, images, hashtags, postTime });
                     }
                 });
-
                 return results;
-            }, batchInfo);
+            });
 
-            console.log(`   ${tweets.length}件のツイートを取得`);
-            allResults = allResults.concat(tweets);
+            console.log(`   📝 取得件数: ${tweets.length}件`);
 
-            await page.waitForTimeout(CONFIG.queryDelay);
+            let savedCount = 0;
+
+            for (const tweet of tweets) {
+                if (officialSet.has(tweet.userId)) continue;
+                if (blacklist.has(tweet.userId)) continue;
+
+                const hitNgWord = CONFIG.ngWords.find(word => tweet.text.includes(word));
+                if (hitNgWord) {
+                    await autoBanUser(tweet.userId, `NGワード: ${hitNgWord}`);
+                    blacklist.add(tweet.userId);
+                    totalBanned++;
+                    continue;
+                }
+                const hitNgUrl = CONFIG.ngUrls.find(ngUrl => tweet.text.includes(ngUrl));
+                if (hitNgUrl) {
+                    await autoBanUser(tweet.userId, `NG URL: ${hitNgUrl}`);
+                    blacklist.add(tweet.userId);
+                    totalBanned++;
+                    continue;
+                }
+
+                // ▼ ここで計算
+                const calculatedTime = parsePostTime(tweet.postTime);
+
+                const isNew = await saveTweet(tweet, calculatedTime);
+                if (isNew) {
+                    process.stdout.write(".");
+                    savedCount++;
+                }
+            }
+            console.log(`\n   💾 新規保存: ${savedCount}件`);
+            totalSaved += savedCount;
+
+            await page.waitForTimeout(CONFIG.scraping.queryDelay);
+
         } catch (error) {
-            console.error(`検索エラー (${query}):`, error.message);
+            console.error(`❌ エラー (${query}):`, error.message);
         }
     }
 
     await browser.close();
-    return allResults;
+    console.log(`\n✅ 全処理完了: 保存 ${totalSaved} 件 / 新規BAN ${totalBanned} 件`);
 }
 
-// =====================================
-// メイン処理
-// =====================================
-async function main() {
-    // バッチ情報を生成
-    const batchDate = new Date();
-    const batchId = batchDate.toISOString().replace(/[:.]/g, '-').split('.')[0]; // 例: 2026-01-12T05-15-24
-    const batchInfo = {
-        batchId: batchId,
-        batchDate: batchDate.toISOString()
-    };
-
-    console.log('🚀 スクレイピング開始');
-    console.log(`📋 バッチID: ${batchId}`);
-    console.log(`📅 実行日時: ${batchInfo.batchDate}`);
-
-    ensureDataDir();
-
-    // 設定とデータの読み込み
-    const queries = loadJSON(CONFIG.queriesFile);
-    const ngConfig = loadJSON(CONFIG.ngWordsFile);
-    const blacklistSet = loadBlacklist();
-    const savedTweets = loadSavedTweets();
-    const savedTweetIds = new Set(savedTweets.map(t => t.id));
-
-    console.log(`設定読み込み: ブラックリスト=${blacklistSet.size}件, 既存ツイート=${savedTweets.length}件`);
-
-    // スクレイピング実行
-    const rawTweets = await scrapeYahooRealtime(queries, batchInfo);
-    console.log(`📥 取得: ${rawTweets.length}件`);
-
-    // フィルタリング
-    const newTweets = [];
-    const processedTexts = new Set();
-    const stats = { discarded: 0, banned: 0 };
-
-    const context = { blacklistSet, savedTweetIds, processedTexts, ngConfig };
-
-    for (const tweet of rawTweets) {
-        const filterResult = shouldFilterOut(tweet, context);
-
-        if (filterResult.filtered) {
-            stats.discarded++;
-            if (filterResult.reason === 'spam') stats.banned++;
-            continue;
-        }
-
-        newTweets.push(tweet);
-        savedTweetIds.add(tweet.id);
-    }
-
-    console.log(`📊 結果: 新規=${newTweets.length}件, 除外=${stats.discarded}件, 自動BAN=${stats.banned}件`);
-
-    // 保存
-    if (newTweets.length > 0) {
-        const updatedTweets = [...newTweets, ...savedTweets];
-        const trimmedTweets = updatedTweets.slice(0, CONFIG.maxSavedTweets);
-
-        saveTweets(trimmedTweets);
-        console.log(`💾 保存完了: ${trimmedTweets.length}件 (上限${CONFIG.maxSavedTweets}件)`);
-    } else {
-        console.log('💤 新しいツイートなし');
-    }
-
-    console.log('✅ 完了');
-}
-
-main().catch(error => {
-    console.error('❌ エラー発生:', error);
-    process.exit(1);
-});
+scrapeYahooRealtime();
