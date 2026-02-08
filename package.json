@@ -13,8 +13,10 @@
     "@aws-sdk/client-dynamodb": "^3.981.0",
     "@aws-sdk/lib-dynamodb": "^3.981.0",
     "@google/generative-ai": "^0.24.1",
+    "aws-sdk": "^2.1693.0",
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
+    "google-trends-api": "^4.9.2",
     "playwright": "^1.40.0"
   }
 }
