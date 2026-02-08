@@ -54,20 +54,15 @@ function get_star_rating_by_date($post_date_timestamp) {
 
   /* カード共通 */
   .sighting-card { 
-      background: white; 
-      border-radius: 16px; /* 角丸を少し強く */
-      padding: 20px; 
-      margin-bottom: 20px; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* 影をふんわりさせる */
+      background: white; border-radius: 16px; padding: 20px; 
+      margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
       border: 1px solid #f0f0f0; 
   }
 
   /* ヘッダーカード */
   .header-card {
       background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-      color: white;
-      text-align: center;
-      border: none;
+      color: white; text-align: center; border: none;
   }
   .header-card h1 { margin: 0; font-size: 1.4rem; color: white; font-weight: bold; }
   .header-card p { font-size: 0.85rem; margin: 5px 0 0; opacity: 0.95; color: white; }
@@ -78,149 +73,88 @@ function get_star_rating_by_date($post_date_timestamp) {
   /* 検索ボックス */
   .search-box-form { display: flex; gap: 8px; margin-top: 10px; }
   .search-input {
-      flex: 1; 
-      padding: 12px 15px; 
-      border: 2px solid #eee; 
-      border-radius: 8px; 
-      font-size: 1rem;
-      outline: none;
-      transition: border-color 0.2s;
+      flex: 1; padding: 12px 15px; border: 2px solid #eee; border-radius: 8px; 
+      font-size: 1rem; outline: none; transition: border-color 0.2s;
   }
   .search-input:focus { border-color: var(--primary-color); }
   .search-btn {
-      background: var(--primary-color); 
-      color: white; 
-      border: none; 
-      padding: 0 24px; 
-      border-radius: 8px; 
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 0.95rem;
+      background: var(--primary-color); color: white; border: none; 
+      padding: 0 24px; border-radius: 8px; font-weight: bold; cursor: pointer;
   }
 
   /* エリアリスト (アコーディオン) */
   .area-details { 
-      margin-bottom: 12px; 
-      border: 1px solid #eee; 
-      border-radius: 10px; 
-      overflow: hidden; 
-      background: white; 
+      margin-bottom: 12px; border: 1px solid #eee; border-radius: 10px; 
+      overflow: hidden; background: white; 
   }
   .area-summary { 
-      padding: 14px 18px; 
-      font-weight: bold; 
-      cursor: pointer; 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      background-color: #fff; 
-      list-style: none; 
-      color: #444;
+      padding: 14px 18px; font-weight: bold; cursor: pointer; 
+      display: flex; justify-content: space-between; align-items: center; 
+      background-color: #fff; list-style: none; color: #444;
   }
   .area-summary:hover { background-color: #fafafa; }
   .area-summary::after { content: '+'; color: var(--primary-color); font-weight: bold; font-size: 1.2rem; }
   .area-details[open] .area-summary::after { content: '-'; }
 
-  /* グリッドとボタン */
   .area-grid { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); /* 幅を微調整 */
-      gap: 10px; 
-      padding: 15px; 
-      border-top: 1px solid #f5f5f5; 
-      background-color: #fff;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); 
+      gap: 10px; padding: 15px; border-top: 1px solid #f5f5f5; background-color: #fff;
   }
   .btn-area { 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      padding: 8px 4px; 
-      background-color: var(--bg-gray); 
-      color: #444; 
-      text-decoration: none; 
-      border: 1px solid #eee; 
-      border-radius: 8px; 
-      font-size: 0.85rem; 
-      font-weight: bold;
-      transition: all 0.2s; 
-      min-height: 44px; /* 高さを確保して押しやすく */
+      display: flex; align-items: center; justify-content: center; 
+      padding: 8px 4px; background-color: var(--bg-gray); color: #444; 
+      text-decoration: none; border: 1px solid #eee; border-radius: 8px; 
+      font-size: 0.85rem; font-weight: bold; transition: all 0.2s; min-height: 44px;
   }
   .btn-area:hover { 
-      background-color: #ffeef8; 
-      border-color: var(--primary-color); 
-      color: var(--primary-color); 
-      transform: translateY(-1px);
+      background-color: #ffeef8; border-color: var(--primary-color); 
+      color: var(--primary-color); transform: translateY(-1px);
   }
 
   /* 店舗リスト (詳細ページ) */
   .shop-list { padding-left: 0; list-style: none; margin: 0; }
   .shop-list li { 
-      padding: 15px 0; 
-      border-bottom: 1px solid #eee; 
-      display: flex; 
-      align-items: center; 
-      justify-content: space-between; 
+      border-bottom: 1px solid #eee; transition: background-color 0.2s;
   }
-  .shop-list li:last-child { border-bottom: none; }
-  .shop-list li::before { content: '🏢'; margin-right: 12px; font-size: 1.2rem; }
+  /* リンク全体をクリック可能にするためのスタイル */
+  .shop-link {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 15px 10px; text-decoration: none; color: inherit; width: 100%;
+  }
+  .shop-link:hover { background-color: #fafafa; }
+  .shop-icon { margin-right: 12px; font-size: 1.2rem; }
   .star-rate { color: #ffbf00; font-size: 0.95rem; font-weight:bold; }
 
   /* ニュースリンク */
   .news-link { 
-      display: block; 
-      padding: 15px; 
-      background: #f4f9ff; 
-      border-radius: 10px; 
-      text-decoration: none; 
-      color: #333; 
-      font-weight: bold; 
-      margin-bottom: 12px; 
-      transition: 0.2s; 
-      border-left: 6px solid #1da1f2;
+      display: block; padding: 15px; background: #f4f9ff; border-radius: 10px; 
+      text-decoration: none; color: #333; font-weight: bold; margin-bottom: 12px; 
+      transition: 0.2s; border-left: 6px solid #1da1f2; 
       box-shadow: 0 2px 4px rgba(0,0,0,0.03);
   }
-  .news-link:hover { 
-      background: #e6f3ff; 
-      transform: translateX(2px);
-  }
-  .news-date { 
-      font-size: 0.75rem; 
-      color: #777; 
-      font-weight: normal; 
-      display: block; 
-      margin-top: 6px; 
-  }
+  .news-link:hover { background: #e6f3ff; transform: translateX(2px); }
+  .news-date { font-size: 0.75rem; color: #777; font-weight: normal; display: block; margin-top: 6px; }
 
-  /* Amazonボタン等 */
+  /* Amazonボタン */
   .btn-amazon { 
-      display: block; 
-      width: 100%; 
-      padding: 14px; 
-      text-align: center; 
-      color: white; 
-      text-decoration: none; 
-      border-radius: 30px; 
-      font-weight: bold; 
-      background-color: #ff9900; 
-      margin-top: 20px; 
-      box-shadow: 0 3px 6px rgba(255, 153, 0, 0.3);
-      transition: opacity 0.2s;
+      display: block; width: 100%; padding: 14px; text-align: center; color: white; 
+      text-decoration: none; border-radius: 30px; font-weight: bold; 
+      background-color: #ff9900; margin-top: 20px; 
+      box-shadow: 0 3px 6px rgba(255, 153, 0, 0.3); transition: opacity 0.2s;
   }
   .btn-amazon:hover { opacity: 0.9; color: white; }
   
-  /* 通常アーカイブ用 */
   .normal-archive h1 { 
-      font-size: 1.5rem; 
-      border-bottom: 3px solid var(--primary-color); 
-      padding-bottom: 10px; 
-      margin-bottom: 25px; 
+      font-size: 1.5rem; border-bottom: 3px solid var(--primary-color); 
+      padding-bottom: 10px; margin-bottom: 25px; 
   }
 </style>
 
 <div class="content">
 <div class="sighting-wrapper">
 
-<?php if ( $cat_slug === 'map' ) : ?>
+<?php /* --- 条件分岐1: トップの在庫マップ (親カテゴリなしの cat-official) --- */ ?>
+<?php if ( ( $cat_slug === 'cat-official' || $cat_slug === 'map' ) && $parent_slug === '' ) : ?>
     <div class="sighting-card header-card">
         <h1>📍 トレンド在庫マップ</h1>
         <p>人気グッズの「今、売ってる場所」がわかる</p>
@@ -316,12 +250,13 @@ function get_star_rating_by_date($post_date_timestamp) {
         </details>
     </div>
 
-<?php elseif ( $parent_slug === 'map' ) : ?>
+<?php /* --- 条件分岐2: 各都道府県の詳細ページ (親が cat-official) --- */ ?>
+<?php elseif ( $parent_slug === 'cat-official' || $parent_slug === 'map' ) : ?>
     <?php
     $latest_shop_name = '日本'; 
     if ( have_posts() ) {
         the_post(); 
-        $latest_shop_name = get_field('shop_name') ?: get_the_title();
+        $latest_shop_name = get_post_meta(get_the_ID(), 'shop_name', true) ?: get_the_title();
         rewind_posts(); 
     }
     ?>
@@ -335,30 +270,34 @@ function get_star_rating_by_date($post_date_timestamp) {
         <h2 style="color:var(--accent-color); font-size:1.1rem; margin-top:0;">📍 <?php single_cat_title(); ?>周辺の状況</h2>
         <div style="margin-bottom:20px; border-radius:12px; overflow:hidden; border:1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
             <iframe width="100%" height="300" frameborder="0" style="border:0" loading="lazy" allowfullscreen 
-                src="https://maps.google.com/maps?q=<?php echo urlencode($latest_shop_name); ?>&output=embed">
+                src="https://maps.google.co.jp/maps?q=<?php echo urlencode($latest_shop_name); ?>&output=embed&t=m&z=14">
             </iframe>
         </div>
         <p style="font-size:0.8rem; color:#666; margin-top:-10px; margin-bottom:20px;">
             ※ 直近の「<?php echo esc_html($latest_shop_name); ?>」周辺を表示
         </p>
+
         <ul class="shop-list">
         <?php if ( have_posts() ) : ?>
             <?php while ( have_posts() ) : the_post(); 
-                $s_name = get_field('shop_name') ?: get_the_title();
+                $s_name = get_post_meta(get_the_ID(), 'shop_name', true) ?: get_the_title();
                 $s_rate = get_star_rating_by_date( get_the_time('U') );
             ?>
             <li>
-                <div style="flex:1;">
-                    <strong style="font-size:1.05rem; color:#333;"><?php echo esc_html($s_name); ?></strong>
-                    <span style="display:block; font-size:0.75rem; color:#999; margin-top:4px;">
-                        <?php echo get_the_date(); ?>
-                    </span>
-                </div>
-                <span class="star-rate"><?php echo esc_html($s_rate); ?></span>
+                <a href="<?php the_permalink(); ?>" class="shop-link">
+                    <div style="flex:1;">
+                        <span class="shop-icon">🏢</span>
+                        <strong style="font-size:1.05rem; color:#333;"><?php echo esc_html($s_name); ?></strong>
+                        <span style="display:block; font-size:0.75rem; color:#999; margin-top:4px;">
+                            <?php echo get_the_date(); ?>
+                        </span>
+                    </div>
+                    <span class="star-rate"><?php echo esc_html($s_rate); ?></span>
+                </a>
             </li>
             <?php endwhile; ?>
         <?php else : ?>
-            <li>情報がありません</li>
+            <li style="padding:15px;">情報がありません</li>
         <?php endif; ?>
         </ul>
     </div>
@@ -385,7 +324,7 @@ function get_star_rating_by_date($post_date_timestamp) {
     <div class="sighting-card" style="border: 2px solid var(--primary-color); background-color:#fff5f9;">
         <h3 style="text-align:center; color:var(--primary-color); margin-top:0;">📦 店舗にない場合はこちら</h3>
         <p style="text-align:center; font-size:0.85rem; color:#555;">交通費をかけるより、通販が確実な場合があります。</p>
-        <a href="#" class="btn-amazon">Amazonで在庫を見る</a>
+        <a href="https://amzn.to/4gQ5pX7" class="btn-amazon">Amazonで在庫を見る</a>
         <p style="text-align:center; font-size:0.75rem; color:#999; margin-top:5px;">※定価より高い場合があります</p>
     </div>
 
@@ -396,7 +335,7 @@ function get_star_rating_by_date($post_date_timestamp) {
             <div style="margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px;">
                 <h2 style="font-size:1.2rem;"><a href="<?php the_permalink(); ?>" style="color:#333; text-decoration:none;"><?php the_title(); ?></a></h2>
                 <p style="font-size:0.8rem; color:#888;"><?php echo get_the_date(); ?></p>
-                <p style="font-size:0.9rem; color:#555;"><?php the_excerpt(); ?></p>
+                <div style="font-size:0.9rem; color:#555;"><?php the_excerpt(); ?></div>
             </div>
         <?php endwhile; endif; ?>
     </div>
