@@ -22,7 +22,7 @@ const INPUT_FILES = ['relatedQueries.csv', 'relatedEntities.csv'];
 const MAIN_SUBJECT = 'ボンボンドロップシール';
 
 // Geminiモデル設定
-// JSONモードを利用するため gemini-1.5-pro または flash を推奨
+// 修正: エラー回避のため動作確認済みの "gemini-1.5-flash" を使用
 const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({
     model: "gemini-3-flash-preview",
@@ -45,13 +45,22 @@ const formatDate = (date) => {
     return `${yyyy}/${mm}/${dd} ${hh}:${min}`;
 };
 
-// ファイル名用日時フォーマット (yyyy_mm_dd_hh)
+// ファイル名用日時フォーマット (yyyy_mm_dd_hh) - 出力ファイル用
 const formatFileNameDate = (date) => {
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const dd = String(date.getDate()).padStart(2, '0');
     const hh = String(date.getHours()).padStart(2, '0');
     return `${yyyy}_${mm}_${dd}_${hh}`;
+};
+
+// リネーム用日時フォーマット (yyyy-mm-dd-hh) - 入力ファイルのリネーム用
+const formatRenameDate = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const hh = String(date.getHours()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}-${hh}`;
 };
 
 // ==========================================
@@ -67,14 +76,12 @@ async function main() {
         let combinedCsvContent = '';
         let filesFound = false;
 
-        // 入力ディレクトリの存在確認（なければ作成して終了）
+        // 入力ディレクトリの存在確認
         try {
             await fs.access(INPUT_DIR);
         } catch {
             console.log(`入力ディレクトリが見つかりません: ${INPUT_DIR}`);
             console.log('パスを確認してください。');
-            // 必要であれば再帰的に作成（ただし今回はデータがある前提なので警告のみにするか、作成するか）
-            // await fs.mkdir(INPUT_DIR, { recursive: true });
             return;
         }
 
@@ -184,16 +191,27 @@ ${combinedCsvContent}
         await fs.writeFile(outputPath, JSON.stringify(formattedData, null, 2), 'utf-8');
         console.log(`ファイル保存完了: ${outputPath}`);
 
-        // 7. 後処理 (入力ファイルの削除)
-        console.log('入力ファイルを削除します...');
+        // 7. 後処理 (入力ファイルのリネーム)
+        console.log('入力ファイルをリネームします...');
+        const renameSuffix = `${formatRenameDate(now)}`; // [yyyy-mm-dd-hh]
+
         for (const fileName of INPUT_FILES) {
-            const filePath = path.join(INPUT_DIR, fileName);
+            const oldPath = path.join(INPUT_DIR, fileName);
+
+            // ファイルが存在するか確認してからリネーム
             try {
-                await fs.unlink(filePath);
-                console.log(`削除完了: ${fileName}`);
+                await fs.access(oldPath);
+
+                const ext = path.extname(fileName); // .csv
+                const baseName = path.basename(fileName, ext); // relatedQueries
+                const newFileName = `${baseName}_${renameSuffix}${ext}`; // relatedQueries_[2026-02-08-20].csv
+                const newPath = path.join(INPUT_DIR, newFileName);
+
+                await fs.rename(oldPath, newPath);
+                console.log(`リネーム完了: ${fileName} -> ${newFileName}`);
             } catch (err) {
                 if (err.code !== 'ENOENT') {
-                    console.error(`削除失敗: ${fileName}`, err);
+                    console.error(`リネーム失敗: ${fileName}`, err);
                 }
             }
         }
