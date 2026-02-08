@@ -1,116 +1,208 @@
-import googleTrends from 'google-trends-api';
-import fs from 'fs';
+import 'dotenv/config';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const SEARCH_KEYWORD = 'ボンボンドロップ';
-const FILE_PATH = 'trends.json';
+// ==========================================
+// 設定・定数
+// ==========================================
+// ES Module環境で __dirname を再現する設定
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-export const handler = async () => {
-    try {
-        console.log(`🔍 「${SEARCH_KEYWORD}」の過去24時間のトレンド（急上昇＆人気）を取得中...`);
+const API_KEY = process.env.GEMINI_API_KEY;
 
-        // 期間設定：過去24時間
-        const startTime = new Date(Date.now() - (24 * 60 * 60 * 1000));
+// スクリプトの場所 (src/other_article/) から見てプロジェクトルート (../../) のdataフォルダを参照
+const INPUT_DIR = path.join(__dirname, '../../data/related_data/input');
+const OUTPUT_DIR = path.join(__dirname, '../../data/related_data/output');
+const INPUT_FILES = ['relatedQueries.csv', 'relatedEntities.csv'];
 
-        const results = await googleTrends.relatedQueries({
-            keyword: SEARCH_KEYWORD,
-            geo: 'JP',
-            startTime: startTime,
-        });
+// メイン商材（プロンプト内で使用）
+const MAIN_SUBJECT = 'ボンボンドロップシール';
 
-        const parsedResults = JSON.parse(results);
-
-        // データ構造のチェック
-        if (!parsedResults.default || !parsedResults.default.rankedList) {
-            console.log("⚠️ データが見つかりませんでした。");
-            return;
-        }
-
-        // 今日の日付
-        const today = new Date().toISOString().split('T')[0];
-        const newData = [];
-
-        // rankedListの中には通常2つのリスト（TopとRising）が入っているので、ループして両方処理する
-        for (const list of parsedResults.default.rankedList) {
-            const keywords = list.rankedKeyword;
-
-            // データが空ならスキップ
-            if (!keywords || keywords.length === 0) continue;
-
-            // --- タイプの判別ロジック ---
-            // 急上昇(Rising)は、formattedValue に "%" や "Breakout" が含まれる
-            // 人気(Top)は、0〜100のスコア数値が入っている
-            const isRising = keywords[0].formattedValue.includes('%') || keywords[0].formattedValue === 'Breakout';
-            const typeLabel = isRising ? '🔥急上昇' : '👑人気';
-            const typeKey = isRising ? 'rising' : 'top';
-
-            console.log(`\n${typeLabel}ワード (${keywords.length}件):`);
-
-            for (const item of keywords) {
-                const query = item.query;
-                let displayValue = item.formattedValue;
-
-                // 表記を見やすく調整
-                if (displayValue === 'Breakout') {
-                    displayValue = '🔥爆発的';
-                } else if (!isRising) {
-                    // 人気ワードの場合は「スコア」と表記
-                    displayValue = `スコア:${item.value}`;
-                }
-
-                console.log(` - ${query} (${displayValue})`);
-
-                newData.push({
-                    date: today,
-                    keyword: query,
-                    type: typeKey,        // 'top' か 'rising' かを区別して保存
-                    value: displayValue,  // 表示用の値
-                    fetched_at: new Date().toISOString()
-                });
-            }
-        }
-
-        if (newData.length === 0) {
-            console.log("\n⚠️ 保存すべきデータが1件もありませんでした。");
-            return;
-        }
-
-        // --- 保存処理 ---
-        let existingData = [];
-        if (fs.existsSync(FILE_PATH)) {
-            try {
-                existingData = JSON.parse(fs.readFileSync(FILE_PATH, 'utf8'));
-            } catch (e) {
-                console.log("既存ファイルの読み込みに失敗したため、新規作成します。");
-            }
-        }
-
-        const finalData = [...existingData];
-        let addedCount = 0;
-
-        for (const newRec of newData) {
-            // 重複チェック（日付 + キーワード + タイプ で判定）
-            const isDuplicate = finalData.some(d =>
-                d.date === newRec.date &&
-                d.keyword === newRec.keyword &&
-                d.type === newRec.type
-            );
-
-            if (!isDuplicate) {
-                finalData.push(newRec);
-                addedCount++;
-            }
-        }
-
-        fs.writeFileSync(FILE_PATH, JSON.stringify(finalData, null, 2));
-
-        console.log(`\n✅ 保存完了！ 新規追加: ${addedCount}件 (ファイル合計: ${finalData.length}件)`);
-
-    } catch (error) {
-        console.error('❌ エラー発生:', error);
+// Geminiモデル設定
+// JSONモードを利用するため gemini-1.5-pro または flash を推奨
+const genAI = new GoogleGenerativeAI(API_KEY);
+const model = genAI.getGenerativeModel({
+    model: "gemini-3-flash-preview",
+    generationConfig: {
+        responseMimeType: "application/json", // JSON出力を強制
     }
+});
+
+// ==========================================
+// ユーティリティ関数
+// ==========================================
+
+// 日時フォーマット (YYYY/MM/DD HH:MM)
+const formatDate = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const hh = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${yyyy}/${mm}/${dd} ${hh}:${min}`;
 };
 
-// ローカル実行用
-if (process.argv[1] === new URL(import.meta.url).pathname) {
-    handler();
+// ファイル名用日時フォーマット (yyyy_mm_dd_hh)
+const formatFileNameDate = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const hh = String(date.getHours()).padStart(2, '0');
+    return `${yyyy}_${mm}_${dd}_${hh}`;
+};
+
+// ==========================================
+// メイン処理
+// ==========================================
+
+async function main() {
+    try {
+        console.log('--- トレンドキーワード抽出処理を開始します ---');
+        console.log(`参照ディレクトリ: ${INPUT_DIR}`);
+
+        // 1. 入力ファイルの読み込み
+        let combinedCsvContent = '';
+        let filesFound = false;
+
+        // 入力ディレクトリの存在確認（なければ作成して終了）
+        try {
+            await fs.access(INPUT_DIR);
+        } catch {
+            console.log(`入力ディレクトリが見つかりません: ${INPUT_DIR}`);
+            console.log('パスを確認してください。');
+            // 必要であれば再帰的に作成（ただし今回はデータがある前提なので警告のみにするか、作成するか）
+            // await fs.mkdir(INPUT_DIR, { recursive: true });
+            return;
+        }
+
+        for (const fileName of INPUT_FILES) {
+            const filePath = path.join(INPUT_DIR, fileName);
+            try {
+                const content = await fs.readFile(filePath, 'utf-8');
+                combinedCsvContent += `\n--- FILE: ${fileName} ---\n${content}`;
+                filesFound = true;
+                console.log(`読み込み成功: ${fileName}`);
+            } catch (err) {
+                if (err.code !== 'ENOENT') {
+                    console.error(`読み込みエラー: ${fileName}`, err);
+                } else {
+                    console.log(`ファイルが見つかりません: ${filePath}`);
+                }
+            }
+        }
+
+        if (!filesFound) {
+            console.log('処理対象のファイルが見つかりませんでした。終了します。');
+            return;
+        }
+
+        // 2. プロンプトの構築
+        const prompt = `
+# Role
+あなたはWebメディアの優秀なトレンド分析官です。
+与えられた「Googleトレンドの検索クエリリスト（CSV）」を分析し、記事のトピックとして価値のある「関連キーワード」のみを抽出してください。
+
+# Main Subject
+分析対象のメイン商材： **${MAIN_SUBJECT}**
+
+# Tasks
+1. 提供されたCSVデータから検索クエリを読み取る。
+2. 各クエリから「メイン商材名（${MAIN_SUBJECT}、ボンボン、ドロップ、シール）」を取り除く。
+3. 残った言葉の中から、以下の「除外ルール」に基づき、不要な単語を削除する。
+4. **キーワードの整形・結合**:
+   * **固有名詞の結合**: 「なかがわ 水 遊園」→「なかがわ水遊園」、「しずく ちゃん」→「しずくちゃん」のように、本来一つの言葉である固有名詞の中に含まれる不要なスペースは削除し、ひと単語として扱ってください。
+   * **トピックのセット化**: キャラクター名やブランド名が含まれる場合は、単体ではなく、**「キャラクター名 ＋ 関連語（例：しずくちゃん 抽選）」**のように、検索意図がわかるセットで抽出してください。
+   * **例外処理**: 「抽選」「通販」「どこ」などの除外ルールに該当する単語であっても、キャラクター名や店舗名と組み合わさることで具体的なトピックになる場合は、例外的に残してセットで出力してください。
+
+5. **リストの精査と重複排除（最重要 - 今回の修正点）**:
+   * **表記ゆれの統一**: 同じ対象を指す言葉（例：「バースデイ」と「バースデー」）は、一般的な表記に統一してください。
+   * **包含関係の処理（具体性優先）**: リスト内に「単体キーワード（A）」と、それを含む「複合キーワード（B）」が両方存在する場合、**より情報量の多い「複合キーワード（B）」のみを残し、単体のキーワード（A）は削除**してください。
+     * 例: ["しまむら", "しまむら オンライン"] → **["しまむら オンライン"]** のみを残す。
+     * 例: ["バースデイ", "バースデイ オンライン"] → **["バースデイ オンライン"]** のみを残す。
+
+# Exclusion Rules (除外ルール - 単体、または汎用的な組み合わせの場合は削除)
+以下のカテゴリーに当てはまる単語は、原則として削除してください。
+* **商材名そのもの:** ボンボン, ドロップ, シール, ステッカー, グミ, キャンディ
+* **ECサイト・フリマアプリ:** メルカリ, Amazon, 楽天, ラクマ, PayPayフリマ, 通販, オンライン
+* **購買意図・状態:** 在庫, 入荷, 再販, 売り切れ, 売ってる場所, どこ, 値段, 価格, 発売日, いつ, 予約, 抽選
+* **汎用的な修飾語:** 人気, 新作, 種類, 一覧, 画像, サイズ, JAN, とは, なぜ, おすすめ, ランキング, 作り方, 手作り
+
+# Inclusion Criteria (抽出対象 - これらは優先的に残す)
+以下のカテゴリーに当てはまる単語は、具体的なトピックとして抽出してください。
+* **具体的なキャラクター名 + 関連語:** (例: しずくちゃん 抽選, たまごっち 種類, お文具さん グッズ, etc.)
+* **地名・施設名:** (例: なかがわ水遊園, 新宿, 原宿, 梅田, 関東, etc.)
+* **具体的なデザイン・柄:** (例: チョコミント, ソーダ, 喫茶店, etc.)
+* **具体的な店舗名:** (例: ハンズ, ロフト, ヴィレヴァン, オリンピア, しまむら, アベイル, シャンブル, ダイソー, ドンキ, etc.)
+* **コラボ先・メーカー名:** (例: クーリア, 藤本電業, etc.)
+
+# Input Data (CSV Content)
+${combinedCsvContent}
+
+# Output Format
+* 結果は重複を除いた「キーワードのリスト」で出力すること。
+* 余計な説明は不要。キーワードのみを列挙する。
+* JSON形式の配列で出力してください。
+  例: ["しずくちゃん 抽選", "なかがわ水遊園", "しまむら 再販", "クーリア 新作", ...]
+`;
+
+        // 3. Gemini APIへリクエスト
+        console.log('Gemini APIに問い合わせ中...');
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        // 4. JSONパース
+        let keywords = [];
+        try {
+            // ```json ... ``` のようなMarkdown記法が含まれていても除去してパースする
+            const jsonStr = text.replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
+            keywords = JSON.parse(jsonStr);
+            console.log(`抽出されたキーワード数: ${keywords.length}`);
+        } catch (e) {
+            console.error('GeminiからのレスポンスをJSONとしてパースできませんでした。');
+            console.error('Response Text:', text);
+            throw e;
+        }
+
+        // 5. 出力データの整形
+        const now = new Date();
+        const formattedData = keywords.map(word => ({
+            created_data: formatDate(now),
+            word: word,
+            fetch_data: formatDate(now) // データの取得日時は処理日時として設定（CSVメタデータがないため）
+        }));
+
+        // 6. JSONファイル保存
+        await fs.mkdir(OUTPUT_DIR, { recursive: true });
+
+        const outputFileName = `related_word_${formatFileNameDate(now)}.json`;
+        const outputPath = path.join(OUTPUT_DIR, outputFileName);
+
+        await fs.writeFile(outputPath, JSON.stringify(formattedData, null, 2), 'utf-8');
+        console.log(`ファイル保存完了: ${outputPath}`);
+
+        // 7. 後処理 (入力ファイルの削除)
+        console.log('入力ファイルを削除します...');
+        for (const fileName of INPUT_FILES) {
+            const filePath = path.join(INPUT_DIR, fileName);
+            try {
+                await fs.unlink(filePath);
+                console.log(`削除完了: ${fileName}`);
+            } catch (err) {
+                if (err.code !== 'ENOENT') {
+                    console.error(`削除失敗: ${fileName}`, err);
+                }
+            }
+        }
+
+        console.log('--- 全ての処理が正常に完了しました ---');
+
+    } catch (error) {
+        console.error('予期せぬエラーが発生しました:', error);
+    }
 }
+
+main();
