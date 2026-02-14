@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { ScanCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { dbClient } from "./utils.js";
+import { dbClient } from "./prefecture/utils.js";
 import 'dotenv/config';
 
 // =====================================

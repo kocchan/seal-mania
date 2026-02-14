@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { dbClient } from "./utils.js";
-import { CONFIG } from "./config.js";
+import { dbClient } from "./prefecture/utils.js";
+import { CONFIG } from "./prefecture/config.js";
 
 // ==========================================
 // 🛠️ ユーティリティ関数

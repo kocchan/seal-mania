@@ -3,7 +3,7 @@ import 'dotenv/config';
 import axios from 'axios';
 import { ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dbClient } from "./utils.js";
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./prefecture/config.js";
 import { fileURLToPath } from 'url';
 
 // =====================================
