@@ -20,12 +20,9 @@ function generateHtmlContent(data) {
         : "不明";
 
     // 2. X(Twitter)のURLクリーンアップとカード化対策
-    // ・「?」以降の不要なパラメータを削除
-    // ・過去バージョンのWPでも確実に動作させるため x.com を twitter.com に置換
     const cleanTweetUrl = data.source_url.split('?')[0].replace('https://x.com', 'https://twitter.com');
 
     // 3. Googleマップ埋め込み用URL生成 (APIキー不要の完全無料版)
-    // 住所がない場合は店舗名で検索するようにフォールバック
     const mapQuery = encodeURIComponent(data.shop_address || data.shop_name);
     const mapEmbedUrl = `https://maps.google.com/maps?q=${mapQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
