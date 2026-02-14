@@ -21,7 +21,7 @@ async function fetchYahooProduct(keyword) {
             console.log(`      🔎 Yahoo APIリクエスト: ${query}`);
             const response = await axios.get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', {
                 params: {
-                    appid: CONFIG.apiKeys.yahooClientId, // 📍 configから取得
+                    appid: CONFIG.apiKeys.yahooClientId,
                     query: query,
                     results: 1,
                     sort: '-score',
@@ -64,7 +64,7 @@ async function fetchYahooProduct(keyword) {
 }
 
 // =====================================
-// ▼▼▼ HTML生成 (Yahoo画像版 + 3ボタンGrid) ▼▼▼
+// ▼▼▼ HTML生成 (アフィリエイト部分 - レスポンシブ修正版) ▼▼▼
 // =====================================
 function generatePochippLikeHtml(keyword, productData) {
     if (!keyword) return '';
@@ -74,147 +74,123 @@ function generatePochippLikeHtml(keyword, productData) {
     const itemPrice = productData ? `¥${productData.price.toLocaleString()}〜` : '';
     const encKey = encodeURIComponent(keyword);
 
-    // 📍 configからアフィリエイトIDを取得
     const amazonUrl = `https://www.amazon.co.jp/s?k=${encKey}&tag=${CONFIG.affiliateIds.amazon}`;
     const rakutenUrl = `https://hb.afl.rakuten.co.jp/hgc/${CONFIG.affiliateIds.rakuten}/?pc=${encodeURIComponent('https://search.rakuten.co.jp/search/mall/' + keyword)}`;
     const yahooSearchUrl = `https://shopping.yahoo.co.jp/search?p=${encKey}`;
     const mainLinkUrl = productData ? productData.url : yahooSearchUrl;
 
     return `
-    <div class="ai-product-box" style="
-        border: 2px solid #f2f2f2 !important;
-        border-radius: 4px !important;
-        padding: 15px !important;
-        margin: 40px 0 !important;
-        background: #fff !important;
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        gap: 20px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-    ">
-        <div style="
-            flex: 0 0 120px !important; 
-            width: 120px !important;
-            min-width: 120px !important;
-            display: flex !important; 
-            justify-content: center !important; 
-            align-items: center !important;
-        ">
-            <a href="${mainLinkUrl}" target="_blank" rel="nofollow" style="display:block !important; border: none !important; box-shadow: none !important; background: none !important; width: 100% !important;">
-                <img src="${itemImage}" alt="${keyword}" style="
-                    width: 100% !important; 
-                    height: auto !important; 
-                    object-fit: contain !important; 
-                    max-height: 120px !important;
-                    border: none !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    display: block !important;
-                ">
+    <div class="pochipp-box">
+        <div class="pochipp-image">
+            <a href="${mainLinkUrl}" target="_blank" rel="nofollow">
+                <img src="${itemImage}" alt="${keyword}">
             </a>
         </div>
-
-        <div style="
-            flex: 1 !important; 
-            min-width: 0 !important; 
-            display: flex !important; 
-            flex-direction: column !important; 
-            justify-content: center !important;
-        ">
-            <div style="margin-bottom: 15px !important;">
-                <a href="${mainLinkUrl}" target="_blank" rel="nofollow" style="
-                    font-weight: bold !important;
-                    color: #333 !important;
-                    text-decoration: none !important;
-                    font-size: 14px !important;
-                    line-height: 1.4 !important;
-                    display: block !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                    background: none !important;
-                ">${itemName}</a>
-                <div style="color: #d32f2f !important; font-size: 13px !important; margin-top: 5px !important;">${itemPrice}</div>
+        <div class="pochipp-content">
+            <div class="pochipp-title-area">
+                <a href="${mainLinkUrl}" target="_blank" rel="nofollow" class="pochipp-title">${itemName}</a>
+                <div class="pochipp-price">${itemPrice}</div>
             </div>
-
-            <div style="
-                display: grid !important;
-                grid-template-columns: 1fr 1fr 1fr !important;
-                gap: 10px !important;
-                width: 100% !important;
-            ">
-                <a href="${amazonUrl}" target="_blank" rel="nofollow" style="
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                    background: #ff9900 !important;
-                    color: #fff !important;
-                    font-weight: bold !important;
-                    font-size: 11px !important;
-                    text-decoration: none !important;
-                    border-radius: 4px !important;
-                    height: 40px !important;
-                    line-height: 1 !important;
-                    box-shadow: 0 2px 0 #cc7a00 !important;
-                    margin: 0 !important;
-                    padding: 0 2px !important;
-                    white-space: nowrap !important;
-                    width: auto !important;
-                ">Amazon</a>
-
-                <a href="${rakutenUrl}" target="_blank" rel="nofollow" style="
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                    background: #bf0000 !important;
-                    color: #fff !important;
-                    font-weight: bold !important;
-                    font-size: 11px !important;
-                    text-decoration: none !important;
-                    border-radius: 4px !important;
-                    height: 40px !important;
-                    line-height: 1 !important;
-                    box-shadow: 0 2px 0 #990000 !important;
-                    margin: 0 !important;
-                    padding: 0 2px !important;
-                    white-space: nowrap !important;
-                    width: auto !important;
-                ">楽天市場</a>
-
-                <a href="${yahooSearchUrl}" target="_blank" rel="nofollow" style="
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                    background: #51a7e8 !important;
-                    color: #fff !important;
-                    font-weight: bold !important;
-                    font-size: 11px !important;
-                    text-decoration: none !important;
-                    border-radius: 4px !important;
-                    height: 40px !important;
-                    line-height: 1 !important;
-                    box-shadow: 0 2px 0 #2079b0 !important;
-                    margin: 0 !important;
-                    padding: 0 2px !important;
-                    white-space: nowrap !important;
-                    width: auto !important;
-                ">Yahoo!ｼｮｯﾋﾟﾝｸﾞ</a>
+            <div class="pochipp-btns">
+                <a href="${amazonUrl}" target="_blank" rel="nofollow" class="pochipp-btn pochipp-amazon">Amazon</a>
+                <a href="${rakutenUrl}" target="_blank" rel="nofollow" class="pochipp-btn pochipp-rakuten">楽天市場</a>
+                <a href="${yahooSearchUrl}" target="_blank" rel="nofollow" class="pochipp-btn pochipp-yahoo">Yahoo!ｼｮｯﾋﾟﾝｸﾞ</a>
             </div>
         </div>
     </div>
 
     <style>
-        @media (max-width: 600px) {
-            .ai-product-box {
-                flex-direction: column !important;
-                align-items: center !important;
-                text-align: center !important;
+        .pochipp-box {
+            border: 2px solid #f2f2f2;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0 40px;
+            background: #fff;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .pochipp-image {
+            flex: 0 0 120px;
+            width: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .pochipp-image img {
+            width: 100%;
+            height: auto;
+            max-height: 120px;
+            object-fit: contain;
+        }
+        .pochipp-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .pochipp-title-area {
+            margin-bottom: 15px;
+        }
+        .pochipp-title {
+            font-weight: bold;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            line-height: 1.4;
+            display: block;
+        }
+        .pochipp-price {
+            color: #d32f2f;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .pochipp-btns {
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            width: 100%;
+        }
+        .pochipp-btn {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff !important;
+            font-weight: bold;
+            font-size: 12px;
+            text-decoration: none;
+            border-radius: 4px;
+            height: 40px;
+            line-height: 1;
+            padding: 0 5px;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+        .pochipp-amazon { background: #ff9900; box-shadow: 0 2px 0 #cc7a00; }
+        .pochipp-rakuten { background: #bf0000; box-shadow: 0 2px 0 #990000; }
+        .pochipp-yahoo { background: #51a7e8; box-shadow: 0 2px 0 #2079b0; }
+
+        /* ▼▼ スマホ用レスポンシブ (縦積みに綺麗に整列) ▼▼ */
+        @media (max-width: 640px) {
+            .pochipp-box {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px 15px;
             }
-            .ai-product-box > div:first-child {
-                margin-bottom: 15px !important;
-                margin-right: 0 !important;
+            .pochipp-image {
+                margin-bottom: 10px;
+            }
+            .pochipp-btns {
+                flex-direction: column;
+            }
+            .pochipp-btn {
+                width: 100%;
             }
         }
     </style>
@@ -247,20 +223,19 @@ function generateHtmlContent(data, affiliateHtml) {
         <li><strong>注意:</strong> ${data.confidence_memo}</li>
     </ul>
 
-    ${affiliateHtml}
-
     <h3>🔗 情報ソース（現地ポスト）</h3>
-    <div style="margin: 20px 0;">
-        [embed]${cleanTweetUrl}[/embed]
-    </div>
-
+    <figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">
+        <div class="wp-block-embed__wrapper">
+            ${cleanTweetUrl}
+        </div>
+    </figure>
     <h3>📍 店舗情報</h3>
     <ul>
         <li><strong>店舗名:</strong> ${data.shop_name}</li>
         <li><strong>住所:</strong> ${data.shop_address}</li>
     </ul>
 
-    <div style="width: 100%; height: 350px; margin-top: 20px;">
+    <div style="width: 100%; height: 350px; margin-top: 20px; margin-bottom: 40px;">
         <iframe 
             width="100%" 
             height="100%" 
@@ -270,6 +245,9 @@ function generateHtmlContent(data, affiliateHtml) {
             allowfullscreen>
         </iframe>
     </div>
+
+    <p> ✨オンラインからも購入できます✨ </p>
+    ${affiliateHtml}
     `;
 }
 
@@ -286,9 +264,6 @@ class WordPressService {
         this.auth = Buffer.from(`${WP_USER}:${WP_APP_PASSWORD}`).toString('base64');
     }
 
-    /**
-     * 指定されたタグ名が存在するか確認し、なければ作成してIDを返す
-     */
     async getOrCreateTag(tagName) {
         if (!tagName) return null;
         try {
@@ -312,36 +287,33 @@ class WordPressService {
     }
 
     /**
-     * 都道府県名から階層カテゴリーのID配列を生成
+     * 都道府県名から階層カテゴリーのID配列を生成（AI表記揺れ対応）
      */
     getCategoryIds(prefectureName) {
-        // 親: 862 (都道府県別) は確定で入れる
         const ids = [CONFIG.wpCategoryMap["都道府県別"] || 862];
         if (!prefectureName) return ids;
 
-        // 子: 地方(関東など) 📍 configから取得
-        const regionId = CONFIG.prefToRegionMap[prefectureName];
+        // AIが「神奈川県」や「大阪府」と出力した場合の「都・道・府・県」を削除
+        // ※北海道はそのままなので正規表現で「都・府・県」のみを削除対象にする
+        const cleanPref = prefectureName.replace(/[都府県]$/, '');
+
+        const regionId = CONFIG.prefToRegionMap[cleanPref];
         if (regionId) ids.push(regionId);
 
-        // 孫: 都道府県
-        const prefId = CONFIG.wpCategoryMap[prefectureName];
+        const prefId = CONFIG.wpCategoryMap[cleanPref];
         if (prefId) ids.push(prefId);
 
-        return ids;
+        // 配列内の重複やundefinedを除去して返す
+        return [...new Set(ids.filter(id => id != null))];
     }
 
-    /**
-     * WordPressへ記事を投稿
-     */
     async postArticle(data) {
-        // 1. 商品情報（アフィリエイト用）を取得
         const productData = await fetchYahooProduct(data.product_name);
         const affiliateHtml = generatePochippLikeHtml(data.product_name, productData);
 
-        // 2. カテゴリーの特定 (親 -> 子 -> 孫 の配列)
+        // 📍 修正されたカテゴリー取得ロジックを使用
         const categories = this.getCategoryIds(data.prefecture);
 
-        // 3. タグの特定・作成
         const tags = [];
         const tag1 = await this.getOrCreateTag("目撃速報");
         if (tag1) tags.push(tag1);
