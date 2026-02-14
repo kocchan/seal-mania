@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import axios from 'axios';
 import { ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { dbClient, getNowJST } from "./utils.js"; // 📍共通関数をインポート
+import { dbClient, getNowJST } from "./utils.js";
 import { CONFIG } from "./config.js";
 import { fileURLToPath } from 'url';
 
@@ -11,34 +11,44 @@ const APP_CONFIG = {
 };
 
 // =====================================
-// HTML本文生成 (一切変更なし)
+// HTML本文生成
 // =====================================
 function generateHtmlContent(data) {
-    let predictionNote = "";
+    // 1. 時刻フォーマットを "YYYY-MM-DD HH:mm" に整形
+    const formattedTime = data.sighting_time
+        ? data.sighting_time.replace('T', ' ').substring(0, 16)
+        : "不明";
 
-    if (data.is_prediction) {
-        predictionNote = `
-        <p style="background:#fff3cd; padding:10px; border-radius:5px; font-size:0.9rem; border:1px solid #ffeeba; color:#856404;">
-        ⚠️ <strong>注意:</strong> 店舗名と住所はツイート内容からAIが推定しました。<br>
-        確実な情報は情報ソースのリンク先をご確認ください。
-        </p>`;
-    }
+    // 2. X(Twitter)のURLクリーンアップとカード化対策
+    // ・「?」以降の不要なパラメータを削除
+    // ・過去バージョンのWPでも確実に動作させるため x.com を twitter.com に置換
+    const cleanTweetUrl = data.source_url.split('?')[0].replace('https://x.com', 'https://twitter.com');
+
+    // 3. Googleマップ埋め込み用URL生成 (APIキー不要の完全無料版)
+    // 住所がない場合は店舗名で検索するようにフォールバック
+    const mapQuery = encodeURIComponent(data.shop_address || data.shop_name);
+    const mapEmbedUrl = `https://maps.google.com/maps?q=${mapQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
     return `
     <p>
-        ${data.prefecture || "エリア不明"}${data.city ? data.city : ""}の「${data.shop_name}」にて、${data.product_name}の目撃情報が寄せられています。<br>
+        ${data.prefecture || "エリア不明"}${data.city ? data.city : ""}の「${data.shop_name}」にて、${data.product_name}の目撃情報があります！<br>
         ${data.status_text} お近くの方はチェックしてみる価値がありそうです。
     </p>
 
-    ${predictionNote}
-
-    <p><strong>📅 目撃・入荷時期</strong> ${data.sighting_time}</p>
+    <p><strong>📅 目撃・入荷時期</strong> ${formattedTime}</p>
 
     <h3>📦 販売状況・詳細</h3>
     <ul>
         <li><strong>内容:</strong> ${data.product_name}が販売されていたとの報告あり。</li>
         <li><strong>注意:</strong> ${data.confidence_memo}</li>
+        <li>
+            <div style="margin: 20px 0;">
+                [embed]${cleanTweetUrl}[/embed]
+            </div>
+        </li>
     </ul>
+
+
 
     <h3>📍 店舗情報</h3>
     <ul>
@@ -46,9 +56,16 @@ function generateHtmlContent(data) {
         <li><strong>住所:</strong> ${data.shop_address}</li>
     </ul>
 
-    <p>🔗 <strong>情報ソース</strong><br>
-    <a href="${data.source_url}" target="_blank" rel="noopener">${data.source_url}</a>
-    </p>
+    <div style="width: 100%; height: 350px; margin-top: 20px;">
+        <iframe 
+            width="100%" 
+            height="100%" 
+            frameborder="0" 
+            style="border:0; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);" 
+            src="${mapEmbedUrl}" 
+            allowfullscreen>
+        </iframe>
+    </div>
     `;
 }
 
@@ -69,12 +86,13 @@ class WordPressService {
      * WordPressへ記事を投稿
      */
     async postArticle(data) {
-        // カテゴリーIDの取得
+        // 都道府県名からカテゴリーIDを取得
         const categoryId = CONFIG.wpCategoryMap[data.prefecture] || 2;
 
         const payload = {
-            title: `【${data.prefecture || "不明"}/${data.city || ""}】${data.shop_name}にて${data.product_name}の目撃情報`,
-            content: generateHtmlContent(data), // 📍指定の関数をそのまま呼び出し
+            // タイトル指定: 【目撃速報】商品名｜エリア（店舗名）
+            title: `【目撃速報】${data.product_name}｜${data.prefecture || ""}${data.city || ""}（${data.shop_name}）`,
+            content: generateHtmlContent(data),
             status: 'publish',
             categories: [categoryId],
             acf: {
