@@ -5,6 +5,17 @@ export const CONFIG = {
         "\"ぷっくり シール\" (\"入荷\" OR \"在庫\" OR \"売ってた\" OR \"買えた\" OR \"ない\" OR \"あった\") -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -譲 -求 -amzn -r10.to -afl.rakuten -\"シル活\""
     ],
 
+    scraping: {
+        headless: true,      // ブラウザを表示させない場合は true
+        queryDelay: 3000,    // 検索クエリごとの待機時間(ms)
+    },
+
+    // 保存・フィルタリング設定 📍ここも必要
+    ttl: 60 * 60 * 24 * 7,   // DynamoDBの保存期間(1週間)
+    officialAccounts: [],     // 除外したい公式アカウントID
+    ngWords: ["プレゼント", "懸賞"], // BAN対象のワード
+    ngUrls: ["amzn.to", "rakuten.co.jp"], // BAN対象のURL
+
     // wordPressカテゴリーとIDのマッピング
     wpCategoryMap: {
         // 都道府県

@@ -1,32 +1,25 @@
 import { chromium } from 'playwright';
 import { PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { dbClient } from "./utils.js";
+import { dbClient, getNowJST, getJSTISOString } from "./utils.js";
 import { CONFIG } from "./config.js";
 
-
 // タイムゾーン・日時 設定
-const getJSTNow = () => new Date(Date.now() + 9 * 60 * 60 * 1000);
-
-function getJSTISOString(dateObj) {
-    const s = (n) => String(n).padStart(2, '0');
-    return `${dateObj.getUTCFullYear()}-${s(dateObj.getUTCMonth() + 1)}-${s(dateObj.getUTCDate())}T${s(dateObj.getUTCHours())}:${s(dateObj.getUTCMinutes())}:${s(dateObj.getUTCSeconds())}.${String(dateObj.getUTCMilliseconds()).padStart(3, '0')}+09:00`;
-}
-
 function parsePostTime(timeStr) {
-    const nowJST = getJSTNow();
+    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
     if (!timeStr) return getJSTISOString(nowJST);
 
     try {
         const minMatch = timeStr.match(/(\d+)分前/);
-        if (minMatch) nowJST.setUTCMinutes(nowJST.getUTCMinutes() - parseInt(minMatch[1]));
+        if (minMatch) nowJST.setUTCMinutes(nowJST.getUTCMinutes() - parseInt(minMatch[1], 10));
 
         const hourMatch = timeStr.match(/(\d+)時間前/);
-        if (hourMatch) nowJST.setUTCHours(nowJST.getUTCHours() - parseInt(hourMatch[1]));
+        if (hourMatch) nowJST.setUTCHours(nowJST.getUTCHours() - parseInt(hourMatch[1], 10));
 
         const dateMatch = timeStr.match(/(\d+)月(\d+)日/);
         if (dateMatch) {
-            nowJST.setUTCMonth(parseInt(dateMatch[1]) - 1, parseInt(dateMatch[2]));
-            if (nowJST > getJSTNow()) nowJST.setUTCFullYear(nowJST.getUTCFullYear() - 1);
+            nowJST.setUTCMonth(parseInt(dateMatch[1], 10) - 1, parseInt(dateMatch[2], 10));
+            const realNowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
+            if (nowJST > realNowJST) nowJST.setUTCFullYear(nowJST.getUTCFullYear() - 1);
         }
     } catch (e) {
         console.warn(`⚠️ 時間変換エラー: ${timeStr}`);
@@ -57,7 +50,7 @@ async function autoBanUser(userId, reason) {
             Item: {
                 user_id: userId,
                 reason: reason,
-                created_at: getJSTISOString(getJSTNow())
+                created_at: getNowJST()
             }
         }));
     } catch (e) {
@@ -92,7 +85,7 @@ async function saveTweet(tweet) {
                 post_time_str: tweet.postTime,
                 images: tweet.images,
                 hashtags: tweet.hashtags,
-                fetched_at: getJSTISOString(getJSTNow()),
+                fetched_at: getNowJST(),
                 is_processed: false,
                 expire_at: Math.floor(Date.now() / 1000) + CONFIG.ttl
             },
