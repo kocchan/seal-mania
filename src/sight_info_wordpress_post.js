@@ -64,7 +64,7 @@ async function fetchYahooProduct(keyword) {
 }
 
 // =====================================
-// ▼▼▼ HTML生成 (アフィリエイト部分 - レスポンシブ修正版) ▼▼▼
+// ▼▼▼ HTML生成 (完全インラインスタイル・レスポンシブ版) ▼▼▼
 // =====================================
 function generatePochippLikeHtml(keyword, productData) {
     if (!keyword) return '';
@@ -79,121 +79,30 @@ function generatePochippLikeHtml(keyword, productData) {
     const yahooSearchUrl = `https://shopping.yahoo.co.jp/search?p=${encKey}`;
     const mainLinkUrl = productData ? productData.url : yahooSearchUrl;
 
+    // styleタグを使用せず、すべてインラインで記述
     return `
-    <div class="pochipp-box">
-        <div class="pochipp-image">
-            <a href="${mainLinkUrl}" target="_blank" rel="nofollow">
-                <img src="${itemImage}" alt="${keyword}">
+    <div style="border: 2px solid #f2f2f2; border-radius: 4px; padding: 15px; margin: 20px 0 40px; background: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); width: 100%; box-sizing: border-box;">
+        
+        <div style="flex: 0 0 120px; width: 120px; display: flex; justify-content: center; align-items: center; margin: 0 auto;">
+            <a href="${mainLinkUrl}" target="_blank" rel="nofollow" style="display:block; border: none; box-shadow: none; background: none;">
+                <img src="${itemImage}" alt="${keyword}" style="width: 100%; height: auto; max-height: 120px; object-fit: contain; border: none; margin: 0; padding: 0;">
             </a>
         </div>
-        <div class="pochipp-content">
-            <div class="pochipp-title-area">
-                <a href="${mainLinkUrl}" target="_blank" rel="nofollow" class="pochipp-title">${itemName}</a>
-                <div class="pochipp-price">${itemPrice}</div>
+
+        <div style="flex: 1 1 250px; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
+            <div style="margin-bottom: 15px; text-align: left;">
+                <a href="${mainLinkUrl}" target="_blank" rel="nofollow" style="font-weight: bold; color: #333; text-decoration: none; font-size: 14px; line-height: 1.4; display: block; border: none;">${itemName}</a>
+                <div style="color: #d32f2f; font-size: 13px; margin-top: 5px;">${itemPrice}</div>
             </div>
-            <div class="pochipp-btns">
-                <a href="${amazonUrl}" target="_blank" rel="nofollow" class="pochipp-btn pochipp-amazon">Amazon</a>
-                <a href="${rakutenUrl}" target="_blank" rel="nofollow" class="pochipp-btn pochipp-rakuten">楽天市場</a>
-                <a href="${yahooSearchUrl}" target="_blank" rel="nofollow" class="pochipp-btn pochipp-yahoo">Yahoo!ｼｮｯﾋﾟﾝｸﾞ</a>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; width: 100%;">
+                <a href="${amazonUrl}" target="_blank" rel="nofollow" style="flex: 1 1 200px; display: flex; justify-content: center; align-items: center; background: #ff9900; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #cc7a00; box-sizing: border-box;">Amazon</a>
+                <a href="${rakutenUrl}" target="_blank" rel="nofollow" style="flex: 1 1 200px; display: flex; justify-content: center; align-items: center; background: #bf0000; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #990000; box-sizing: border-box;">楽天市場</a>
+                <a href="${yahooSearchUrl}" target="_blank" rel="nofollow" style="flex: 1 1 200px; display: flex; justify-content: center; align-items: center; background: #51a7e8; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #2079b0; box-sizing: border-box;">Yahoo!ｼｮｯﾋﾟﾝｸﾞ</a>
             </div>
         </div>
+
     </div>
-
-    <style>
-        .pochipp-box {
-            border: 2px solid #f2f2f2;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 20px 0 40px;
-            background: #fff;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .pochipp-image {
-            flex: 0 0 120px;
-            width: 120px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .pochipp-image img {
-            width: 100%;
-            height: auto;
-            max-height: 120px;
-            object-fit: contain;
-        }
-        .pochipp-content {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        .pochipp-title-area {
-            margin-bottom: 15px;
-        }
-        .pochipp-title {
-            font-weight: bold;
-            color: #333;
-            text-decoration: none;
-            font-size: 14px;
-            line-height: 1.4;
-            display: block;
-        }
-        .pochipp-price {
-            color: #d32f2f;
-            font-size: 13px;
-            margin-top: 5px;
-        }
-        .pochipp-btns {
-            display: flex;
-            flex-direction: row;
-            gap: 10px;
-            width: 100%;
-        }
-        .pochipp-btn {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #fff !important;
-            font-weight: bold;
-            font-size: 12px;
-            text-decoration: none;
-            border-radius: 4px;
-            height: 40px;
-            line-height: 1;
-            padding: 0 5px;
-            white-space: nowrap;
-            box-sizing: border-box;
-        }
-        .pochipp-amazon { background: #ff9900; box-shadow: 0 2px 0 #cc7a00; }
-        .pochipp-rakuten { background: #bf0000; box-shadow: 0 2px 0 #990000; }
-        .pochipp-yahoo { background: #51a7e8; box-shadow: 0 2px 0 #2079b0; }
-
-        /* ▼▼ スマホ用レスポンシブ (縦積みに綺麗に整列) ▼▼ */
-        @media (max-width: 640px) {
-            .pochipp-box {
-                flex-direction: column;
-                text-align: center;
-                padding: 20px 15px;
-            }
-            .pochipp-image {
-                margin-bottom: 10px;
-            }
-            .pochipp-btns {
-                flex-direction: column;
-            }
-            .pochipp-btn {
-                width: 100%;
-            }
-        }
-    </style>
     `;
 }
 
@@ -229,6 +138,7 @@ function generateHtmlContent(data, affiliateHtml) {
             ${cleanTweetUrl}
         </div>
     </figure>
+
     <h3>📍 店舗情報</h3>
     <ul>
         <li><strong>店舗名:</strong> ${data.shop_name}</li>
@@ -246,7 +156,7 @@ function generateHtmlContent(data, affiliateHtml) {
         </iframe>
     </div>
 
-    <p> ✨オンラインからも購入できます✨ </p>
+    <p style="font-weight: bold; font-size: 1.1em; margin-bottom: 10px; text-align: center;"> ✨オンラインからも購入できます✨ </p>
     ${affiliateHtml}
     `;
 }
@@ -286,15 +196,10 @@ class WordPressService {
         }
     }
 
-    /**
-     * 都道府県名から階層カテゴリーのID配列を生成（AI表記揺れ対応）
-     */
     getCategoryIds(prefectureName) {
         const ids = [CONFIG.wpCategoryMap["都道府県別"] || 862];
         if (!prefectureName) return ids;
 
-        // AIが「神奈川県」や「大阪府」と出力した場合の「都・道・府・県」を削除
-        // ※北海道はそのままなので正規表現で「都・府・県」のみを削除対象にする
         const cleanPref = prefectureName.replace(/[都府県]$/, '');
 
         const regionId = CONFIG.prefToRegionMap[cleanPref];
@@ -303,7 +208,6 @@ class WordPressService {
         const prefId = CONFIG.wpCategoryMap[cleanPref];
         if (prefId) ids.push(prefId);
 
-        // 配列内の重複やundefinedを除去して返す
         return [...new Set(ids.filter(id => id != null))];
     }
 
@@ -311,7 +215,6 @@ class WordPressService {
         const productData = await fetchYahooProduct(data.product_name);
         const affiliateHtml = generatePochippLikeHtml(data.product_name, productData);
 
-        // 📍 修正されたカテゴリー取得ロジックを使用
         const categories = this.getCategoryIds(data.prefecture);
 
         const tags = [];
