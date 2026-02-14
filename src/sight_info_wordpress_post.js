@@ -11,20 +11,227 @@ const APP_CONFIG = {
 };
 
 // =====================================
-// HTML本文生成
+// ▼▼▼ Yahoo!ショッピング検索 (画像取得) ▼▼▼
 // =====================================
-function generateHtmlContent(data) {
-    // 1. 時刻フォーマットを "YYYY-MM-DD HH:mm" に整形
+async function fetchYahooProduct(keyword) {
+    if (!keyword) return null;
+
+    const executeSearch = async (query) => {
+        try {
+            console.log(`      🔎 Yahoo APIリクエスト: ${query}`);
+            const response = await axios.get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', {
+                params: {
+                    appid: CONFIG.apiKeys.yahooClientId, // 📍 configから取得
+                    query: query,
+                    results: 1,
+                    sort: '-score',
+                    image_size: 300
+                }
+            });
+
+            const hits = response.data.hits;
+            if (hits && hits.length > 0) {
+                const item = hits[0];
+                const imageUrl = item.image && item.image.medium ? item.image.medium : '';
+                console.log(`      ✅ 商品発見(Yahoo): ${item.name.substring(0, 15)}...`);
+                return {
+                    name: item.name,
+                    image: imageUrl,
+                    price: item.price,
+                    url: item.url
+                };
+            }
+            return null;
+        } catch (e) {
+            console.error(`      ⚠️ APIエラー: ${e.response ? e.response.status : e.message}`);
+            return null;
+        }
+    };
+
+    let result = await executeSearch(keyword);
+    if (result) return result;
+
+    const words = keyword.split(/\s+/);
+    while (words.length > 1) {
+        words.pop();
+        const shortKey = words.join(' ');
+        result = await executeSearch(shortKey);
+        if (result) return result;
+    }
+
+    console.log(`      ⚠️ 最終手段: "シール"で検索`);
+    return await executeSearch("シール");
+}
+
+// =====================================
+// ▼▼▼ HTML生成 (Yahoo画像版 + 3ボタンGrid) ▼▼▼
+// =====================================
+function generatePochippLikeHtml(keyword, productData) {
+    if (!keyword) return '';
+
+    const itemName = productData ? productData.name : `${keyword}`;
+    const itemImage = (productData && productData.image) ? productData.image : 'https://placehold.jp/300x300.png?text=No%20Image';
+    const itemPrice = productData ? `¥${productData.price.toLocaleString()}〜` : '';
+    const encKey = encodeURIComponent(keyword);
+
+    // 📍 configからアフィリエイトIDを取得
+    const amazonUrl = `https://www.amazon.co.jp/s?k=${encKey}&tag=${CONFIG.affiliateIds.amazon}`;
+    const rakutenUrl = `https://hb.afl.rakuten.co.jp/hgc/${CONFIG.affiliateIds.rakuten}/?pc=${encodeURIComponent('https://search.rakuten.co.jp/search/mall/' + keyword)}`;
+    const yahooSearchUrl = `https://shopping.yahoo.co.jp/search?p=${encKey}`;
+    const mainLinkUrl = productData ? productData.url : yahooSearchUrl;
+
+    return `
+    <div class="ai-product-box" style="
+        border: 2px solid #f2f2f2 !important;
+        border-radius: 4px !important;
+        padding: 15px !important;
+        margin: 40px 0 !important;
+        background: #fff !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 20px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    ">
+        <div style="
+            flex: 0 0 120px !important; 
+            width: 120px !important;
+            min-width: 120px !important;
+            display: flex !important; 
+            justify-content: center !important; 
+            align-items: center !important;
+        ">
+            <a href="${mainLinkUrl}" target="_blank" rel="nofollow" style="display:block !important; border: none !important; box-shadow: none !important; background: none !important; width: 100% !important;">
+                <img src="${itemImage}" alt="${keyword}" style="
+                    width: 100% !important; 
+                    height: auto !important; 
+                    object-fit: contain !important; 
+                    max-height: 120px !important;
+                    border: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    display: block !important;
+                ">
+            </a>
+        </div>
+
+        <div style="
+            flex: 1 !important; 
+            min-width: 0 !important; 
+            display: flex !important; 
+            flex-direction: column !important; 
+            justify-content: center !important;
+        ">
+            <div style="margin-bottom: 15px !important;">
+                <a href="${mainLinkUrl}" target="_blank" rel="nofollow" style="
+                    font-weight: bold !important;
+                    color: #333 !important;
+                    text-decoration: none !important;
+                    font-size: 14px !important;
+                    line-height: 1.4 !important;
+                    display: block !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                    background: none !important;
+                ">${itemName}</a>
+                <div style="color: #d32f2f !important; font-size: 13px !important; margin-top: 5px !important;">${itemPrice}</div>
+            </div>
+
+            <div style="
+                display: grid !important;
+                grid-template-columns: 1fr 1fr 1fr !important;
+                gap: 10px !important;
+                width: 100% !important;
+            ">
+                <a href="${amazonUrl}" target="_blank" rel="nofollow" style="
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    background: #ff9900 !important;
+                    color: #fff !important;
+                    font-weight: bold !important;
+                    font-size: 11px !important;
+                    text-decoration: none !important;
+                    border-radius: 4px !important;
+                    height: 40px !important;
+                    line-height: 1 !important;
+                    box-shadow: 0 2px 0 #cc7a00 !important;
+                    margin: 0 !important;
+                    padding: 0 2px !important;
+                    white-space: nowrap !important;
+                    width: auto !important;
+                ">Amazon</a>
+
+                <a href="${rakutenUrl}" target="_blank" rel="nofollow" style="
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    background: #bf0000 !important;
+                    color: #fff !important;
+                    font-weight: bold !important;
+                    font-size: 11px !important;
+                    text-decoration: none !important;
+                    border-radius: 4px !important;
+                    height: 40px !important;
+                    line-height: 1 !important;
+                    box-shadow: 0 2px 0 #990000 !important;
+                    margin: 0 !important;
+                    padding: 0 2px !important;
+                    white-space: nowrap !important;
+                    width: auto !important;
+                ">楽天市場</a>
+
+                <a href="${yahooSearchUrl}" target="_blank" rel="nofollow" style="
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    background: #51a7e8 !important;
+                    color: #fff !important;
+                    font-weight: bold !important;
+                    font-size: 11px !important;
+                    text-decoration: none !important;
+                    border-radius: 4px !important;
+                    height: 40px !important;
+                    line-height: 1 !important;
+                    box-shadow: 0 2px 0 #2079b0 !important;
+                    margin: 0 !important;
+                    padding: 0 2px !important;
+                    white-space: nowrap !important;
+                    width: auto !important;
+                ">Yahoo!ｼｮｯﾋﾟﾝｸﾞ</a>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @media (max-width: 600px) {
+            .ai-product-box {
+                flex-direction: column !important;
+                align-items: center !important;
+                text-align: center !important;
+            }
+            .ai-product-box > div:first-child {
+                margin-bottom: 15px !important;
+                margin-right: 0 !important;
+            }
+        }
+    </style>
+    `;
+}
+
+// =====================================
+// ▼▼▼ 記事本文生成 ▼▼▼
+// =====================================
+function generateHtmlContent(data, affiliateHtml) {
     const formattedTime = data.sighting_time
         ? data.sighting_time.replace('T', ' ').substring(0, 16)
         : "不明";
 
-    // 2. X(Twitter)のURLクリーンアップとカード化対策
     const cleanTweetUrl = data.source_url.split('?')[0].replace('https://x.com', 'https://twitter.com');
-
-    // 3. Googleマップ埋め込み用URL生成 (APIキー不要の完全無料版)
     const mapQuery = encodeURIComponent(data.shop_address || data.shop_name);
-    const mapEmbedUrl = `https://maps.google.com/maps?q=${mapQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+    const mapEmbedUrl = `https://maps.google.co.jp/maps?output=embed&q=${mapQuery}&t=m&z=15`;
 
     return `
     <p>
@@ -38,14 +245,14 @@ function generateHtmlContent(data) {
     <ul>
         <li><strong>内容:</strong> ${data.product_name}が販売されていたとの報告あり。</li>
         <li><strong>注意:</strong> ${data.confidence_memo}</li>
-        <li>
-            <div style="margin: 20px 0;">
-                [embed]${cleanTweetUrl}[/embed]
-            </div>
-        </li>
     </ul>
 
+    ${affiliateHtml}
 
+    <h3>🔗 情報ソース（現地ポスト）</h3>
+    <div style="margin: 20px 0;">
+        [embed]${cleanTweetUrl}[/embed]
+    </div>
 
     <h3>📍 店舗情報</h3>
     <ul>
@@ -80,18 +287,76 @@ class WordPressService {
     }
 
     /**
+     * 指定されたタグ名が存在するか確認し、なければ作成してIDを返す
+     */
+    async getOrCreateTag(tagName) {
+        if (!tagName) return null;
+        try {
+            const searchRes = await axios.get(`${this.apiUrl}/tags?search=${encodeURIComponent(tagName)}`, {
+                headers: { 'Authorization': `Basic ${this.auth}` }
+            });
+            const existingTag = searchRes.data.find(t => t.name === tagName);
+            if (existingTag) return existingTag.id;
+
+            const createRes = await axios.post(`${this.apiUrl}/tags`, { name: tagName }, {
+                headers: {
+                    'Authorization': `Basic ${this.auth}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            return createRes.data.id;
+        } catch (e) {
+            console.error(`      ⚠️ タグ「${tagName}」の処理に失敗:`, e.response?.data?.message || e.message);
+            return null;
+        }
+    }
+
+    /**
+     * 都道府県名から階層カテゴリーのID配列を生成
+     */
+    getCategoryIds(prefectureName) {
+        // 親: 862 (都道府県別) は確定で入れる
+        const ids = [CONFIG.wpCategoryMap["都道府県別"] || 862];
+        if (!prefectureName) return ids;
+
+        // 子: 地方(関東など) 📍 configから取得
+        const regionId = CONFIG.prefToRegionMap[prefectureName];
+        if (regionId) ids.push(regionId);
+
+        // 孫: 都道府県
+        const prefId = CONFIG.wpCategoryMap[prefectureName];
+        if (prefId) ids.push(prefId);
+
+        return ids;
+    }
+
+    /**
      * WordPressへ記事を投稿
      */
     async postArticle(data) {
-        // 都道府県名からカテゴリーIDを取得
-        const categoryId = CONFIG.wpCategoryMap[data.prefecture] || 2;
+        // 1. 商品情報（アフィリエイト用）を取得
+        const productData = await fetchYahooProduct(data.product_name);
+        const affiliateHtml = generatePochippLikeHtml(data.product_name, productData);
+
+        // 2. カテゴリーの特定 (親 -> 子 -> 孫 の配列)
+        const categories = this.getCategoryIds(data.prefecture);
+
+        // 3. タグの特定・作成
+        const tags = [];
+        const tag1 = await this.getOrCreateTag("目撃速報");
+        if (tag1) tags.push(tag1);
+
+        if (data.product_name) {
+            const tag2 = await this.getOrCreateTag(data.product_name);
+            if (tag2) tags.push(tag2);
+        }
 
         const payload = {
-            // タイトル指定: 【目撃速報】商品名｜エリア（店舗名）
             title: `【目撃速報】${data.product_name}｜${data.prefecture || ""}${data.city || ""}（${data.shop_name}）`,
-            content: generateHtmlContent(data),
+            content: generateHtmlContent(data, affiliateHtml),
             status: 'publish',
-            categories: [categoryId],
+            categories: categories,
+            tags: tags,
             acf: {
                 shop_name: data.shop_name,
                 shop_address: data.shop_address || "",
