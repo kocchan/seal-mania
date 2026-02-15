@@ -107,10 +107,10 @@ async function savePublishedArticle(articleData) {
 // 🤖 AI 処理関連
 // =====================================
 
-// 1. 検閲関数（記事の質を評価）
+// 1. 検閲関数（記事の質を評価し、NGなら修正を試みる）
 async function censorDraft(draft) {
     console.log(`   🕵️‍♂️ 記事の質を検閲中...`);
-    const prompt = `
+    const checkPrompt = `
 あなたはターゲット読者（熱烈にシールを欲しがっているお子さんやその母親）の目線を持つ厳しい編集長です。
 以下の記事下書きを読み、読者にとって本当に有益か判定してください。
 
@@ -131,11 +131,52 @@ ${draft.content}
 }
 `;
     try {
-        const res = await jsonModel.generateContent(prompt);
-        const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
-        return JSON.parse(jsonStr);
+        const checkRes = await jsonModel.generateContent(checkPrompt);
+        const checkJsonStr = checkRes.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
+        const checkData = JSON.parse(checkJsonStr);
+
+        // 1発でOKの場合
+        if (checkData.is_approved) {
+            return { is_approved: true, content: draft.content };
+        }
+
+        // NGの場合、修正・加筆を試みる
+        console.log(`   ⚠️ 検閲NG（理由: ${checkData.reason}）。記事の修正を試みます...`);
+        const fixPrompt = `
+あなたはプロのWebライターです。
+以下の【記事下書き】は、編集長から以下の【NG理由】で差し戻されました。
+NG理由を解消し、読者にとって有益で深みのある記事になるよう修正・加筆を行ってください。
+
+ただし、与えられた元の情報だけではどうしても要件を満たせない（情報が決定的に不足しており、推測で補うこともできない）場合は、修正不可能としてください。（事実の捏造は厳禁です）
+
+【NG理由】
+${checkData.reason}
+
+【記事下書き】
+タイトル: ${draft.title}
+本文:
+${draft.content}
+
+以下のJSON形式で出力してください。
+{
+    "can_fix": trueまたはfalse（修正できたかどうか）,
+    "fixed_content": "修正後の記事本文（Markdown形式。修正できない場合は空文字でOK）",
+    "reason": "修正したポイント、または修正できなかった理由"
+}
+`;
+        const fixRes = await jsonModel.generateContent(fixPrompt);
+        const fixJsonStr = fixRes.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
+        const fixData = JSON.parse(fixJsonStr);
+
+        if (fixData.can_fix) {
+            console.log(`   🛠️ 修正成功: ${fixData.reason}`);
+            return { is_approved: true, content: fixData.fixed_content }; // 修正できた場合はtrueと新しい本文を返す
+        } else {
+            return { is_approved: false, reason: fixData.reason }; // 修正不可能な場合のみ最終NG
+        }
+
     } catch (e) {
-        return { is_approved: false, reason: "AI判定エラー" };
+        return { is_approved: false, reason: "AI判定・修正エラー" };
     }
 }
 
@@ -169,7 +210,7 @@ ${draft.content}
         const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
         const data = JSON.parse(jsonStr);
 
-        // 📍 修正：URLをクリーンにする（パラメータ削除 ＆ x.comをtwitter.comへ置換）
+        // URLをクリーンにする
         let cleanTweetUrl = data.tweet_url || "";
         if (cleanTweetUrl.includes("?")) {
             cleanTweetUrl = cleanTweetUrl.split("?")[0];
@@ -179,7 +220,7 @@ ${draft.content}
         const mapQuery = encodeURIComponent(data.shop_address || data.shop_name);
         const mapEmbedUrl = `https://maps.google.co.jp/maps?output=embed&q=${mapQuery}&t=m&z=15`;
 
-        // 📍 修正：WordPressの標準的なTwitter埋め込みブロック構造にする
+        // WordPressの標準的なTwitter埋め込みブロック構造にする
         const templateHtml = `
 <p>${data.prefecture || "エリア不明"}${data.city || ""}の「${data.shop_name}」にて、${data.product_name}の目撃情報があります！<br>
 ${data.status_text} お近くの方はチェックしてみる価値がありそうです。</p>
@@ -210,7 +251,6 @@ ${data.status_text} お近くの方はチェックしてみる価値がありそ
 </div>
 `;
 
-        // 📍 修正：AIが書いた下書き本文(draft.content)とは合体させず、テンプレートのみを返す
         return {
             html_content: templateHtml,
             product_name: data.product_name
@@ -239,7 +279,7 @@ async function enhanceTypeBtoF(draft, extraTweets) {
 * X（Twitter）のURLを記載する際は、単なるテキストリンク（<a href="...">）ではなく、必ず以下のWordPress埋め込み用HTMLフォーマットを使用してください。（URLの ? 以降のパラメータは削除したクリーンなURLを入れてください）
   <figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">
       <div class="wp-block-embed__wrapper">
-          https://twitter.com/xxxx/status/123456789
+          [https://twitter.com/xxxx/status/123456789](https://twitter.com/xxxx/status/123456789)
       </div>
   </figure>
 
@@ -262,14 +302,13 @@ ${extraInfo}
 }
 `;
     try {
-        // 📍 HTML構文崩れを防ぐため jsonModel (JSON出力モード) を使用
         const res = await jsonModel.generateContent(prompt);
         const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
         const data = JSON.parse(jsonStr);
         return data.html_content;
     } catch (e) {
         console.error("Type B-F Enhancement Error:", e);
-        return draft.content; // エラー時は元のテキストをそのまま返す
+        return draft.content;
     }
 }
 
@@ -308,7 +347,7 @@ async function getTermId(taxonomy, termName) {
 async function fetchYahooProduct(keyword) {
     if (!keyword) return null;
     try {
-        const response = await axios.get('[https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch](https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch)', {
+        const response = await axios.get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', {
             params: { appid: YAHOO_CLIENT_ID, query: keyword, results: 1, sort: '-score', image_size: 300 }
         });
         const hits = response.data.hits;
@@ -323,7 +362,7 @@ async function fetchYahooProduct(keyword) {
 function generatePochippLikeHtml(keyword, productData) {
     if (!keyword) return '';
     const itemName = productData ? productData.name : `${keyword}`;
-    const itemImage = (productData && productData.image) ? productData.image : '[https://placehold.jp/300x300.png?text=No%20Image](https://placehold.jp/300x300.png?text=No%20Image)';
+    const itemImage = (productData && productData.image) ? productData.image : 'https://placehold.jp/300x300.png?text=No%20Image';
     const itemPrice = productData ? `¥${productData.price.toLocaleString()}〜` : '';
     const encKey = encodeURIComponent(keyword);
     const amazonUrl = `https://www.amazon.co.jp/s?k=${encKey}&tag=${AFFILIATE_ID_AMAZON}`;
@@ -371,13 +410,15 @@ async function main() {
             continue;
         }
 
-        // 2. AIによる検閲
+        // 2. AIによる検閲（修正込み）
         const censorResult = await censorDraft(draft);
         if (!censorResult.is_approved) {
-            console.log(`   🚫 検閲により却下: ${censorResult.reason}`);
+            console.log(`   🚫 検閲により最終却下: ${censorResult.reason}`);
             await updateDraftStatus(draft.draft_id, true, true);
             continue;
         }
+        // 検閲（修正）をクリアした本文で上書き
+        draft.content = censorResult.content;
         console.log(`   ✅ 検閲クリア！`);
 
         // 3. 記事の強化・肉付け
