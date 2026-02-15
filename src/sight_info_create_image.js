@@ -71,59 +71,41 @@ class ImageGenerator {
      * Gemini APIを呼び出して画像を生成・保存
      */
     async generateAndSaveImage(article) {
+        // プロンプトに埋め込むための変数を準備
         const color = this.getThemeColor(article.prefecture);
-        const prefCity = `${article.prefecture || ""}${article.city || ""}`;
+        const product_name = article.product_name || "ボンボンドロップシール";
+        const prefecture = article.prefecture || "";
+        const cityName = article.city || "";
+        const prefCity = `${prefecture}${cityName}`;
 
-        // 論理解像度(1920x1080)を基準にした定量的な仕様書形式
         const prompt = `
-            You are a precise graphic design rendering engine. Create an image based strictly on the following specifications.
+            You are a professional illustrator creating a **well-balanced, pop-style hand-drawn illustration** for a web article.
+            The image conveys a "Breaking News" report about finding a popular item. It should be playful and cute, but NOT overly cluttered.
 
-            [Canvas Specification]
-            - Aspect Ratio: 16:9
-            - Logical Resolution: 1920px (width) x 1080px (height)
-            - Background Color: Solid White (#FFFFFF)
+            **[Design Configuration]**
+            * **Aspect Ratio**: 16:9
+            * **Style**: Clean hand-drawn style with colored pencils or markers. A good balance of negative space and cute elements.
+            * **Background**: A **pale, light shade** based on the color ${color}. You may use a very subtle, soft pattern (like faint polka dots or a light grid), but keep it unobtrusive.
+            * **Composition**: Center a cute illustration of the product package ("${product_name}", which is a pack of **stickers**, not candy).
 
-            [Border Specification]
-            - Style: Solid line
-            - Color: ${color}
-            - Thickness: exactly 80px
-            - Position: Inner border perfectly aligned with the canvas edge.
+            **[Text Elements (Mandatory)]**
+            1.  **"目撃速報" Stamp**:
+                * Text: "目撃速報" (Breaking News)
+                * Style: Red rubber stamp, tilted diagonally in the **Top Right corner**.
+            2.  **Location Name**:
+                * Text: "${prefecture}" (Large)
+                * ${cityName ? `Text: "${cityName}" (Smaller, below prefecture)` : ""}
+                * Position: Prominently placed near the center or beside the product.
+                * Style: Fun, bold, hand-drawn font with a soft outline to make it readable.
 
-            [Typography & Layout Specification]
-            - Font Family: "M PLUS Rounded 1c ExtraBold" or "Gen Jyuu Gothic Heavy" (A very thick, rounded, friendly Japanese pop font). No sharp Gothic or Mincho fonts.
-            - Text Alignment: Center-aligned both horizontally and vertically.
-            - Padding (Space between inner border edge and text block): exactly 120px on all sides (top, bottom, left, right).
-
-            [Text Content & Exact Sizing]
-            Render the following three lines of text from top to bottom, forming a single centered text block:
-
-            - Line 1:
-              - Text: "【目撃速報】"
-              - Font Size: exactly 80px
-              - Font Color: Solid Black (#000000)
-            
-            - Spacing between Line 1 and Line 2: exactly 60px
-
-            - Line 2:
-              - Text: "${prefCity}"
-              - Font Size: exactly 160px
-              - Font Color: Solid Black (#000000)
-
-            - Spacing between Line 2 and Line 3: exactly 80px
-
-            - Line 3:
-              - Text: "${article.product_name}"
-              - Font Size: exactly 80px
-              - Font Color: Solid Black (#000000)
-
-            [Strict Constraints]
-            - The specified pixel values for border thickness (80px), padding (120px), font sizes (80px, 180px, 100px), and line spacing (60px, 80px) are absolute and MANDATORY instructions. They must be rendered precisely as specified without any deviation.
-            - Do NOT add any illustrations, icons, watermarks, shadows, gradients, or background patterns.
-            - The text MUST be rendered exactly as written in perfect Japanese characters without typos or artifacts.
+            **[Absolute Rules]**
+            * Keep the overall design "just right" — neither too empty nor too noisy.
+            * The product is **STICKERS**, not candy.
+            * Ensure the Japanese text is rendered exactly as written.
         `;
 
         try {
-            console.log(`🎨 画像生成中: ${prefCity} - ${article.product_name} (Color: ${color})`);
+            console.log(`🎨 画像生成中: ${prefCity} - ${product_name} (Color: ${color})`);
 
             const response = await this.ai.models.generateContent({
                 model: "gemini-3-pro-image-preview",

@@ -339,7 +339,6 @@ ${extraInfo}
             if (cleanUrl.includes("?")) cleanUrl = cleanUrl.split("?")[0];
             cleanUrl = cleanUrl.replace(/https:\/\/x\.com/g, "https://twitter.com");
 
-            // 📍 テキストの引用文(<blockquote>)を削除し、Xの埋め込みのみを表示する
             if (cleanUrl) {
                 templateHtml += `<figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">\n    <div class="wp-block-embed__wrapper">\n        ${cleanUrl}\n    </div>\n</figure>\n\n`;
             }
@@ -366,7 +365,7 @@ ${extraInfo}
 }
 
 // =====================================
-// ヘルパー・アフィリエイト・WP
+// ヘルパー・アフィリエイト・WP画像アップロード
 // =====================================
 
 async function getTermId(taxonomy, termName) {
@@ -452,6 +451,26 @@ function generatePochippLikeHtml(keyword, productData) {
     </div>`;
 }
 
+// 📍 追加：WordPressへ画像をアップロードし、アタッチメントIDを取得する関数
+async function uploadImageToWordPress(imagePath, fileName) {
+    try {
+        const fileBuffer = await fs.readFile(imagePath);
+        const credentials = Buffer.from(`${WP_USER}:${WP_APP_PASSWORD}`).toString('base64');
+
+        const response = await axios.post(`${WP_API_URL}/media`, fileBuffer, {
+            headers: {
+                'Authorization': `Basic ${credentials}`,
+                'Content-Type': 'image/png',
+                'Content-Disposition': `attachment; filename="${fileName}"`
+            }
+        });
+        return response.data.id; // アップロードされたメディアのIDを返す
+    } catch (error) {
+        console.error(`      ❌ 画像アップロードエラー (${fileName}):`, error.response?.data?.message || error.message);
+        return null;
+    }
+}
+
 // =====================================
 // 🚀 メインパイプライン
 // =====================================
@@ -529,8 +548,8 @@ async function main() {
             // Aパターンの場合：2つ目の見出し(<h3>)の前に挿入
             const h3Tags = contentBody.match(/<h3/g);
             if (h3Tags && h3Tags.length >= 2) {
-                let splitIndex = contentBody.indexOf('<h3'); // 1つ目
-                splitIndex = contentBody.indexOf('<h3', splitIndex + 1); // 2つ目
+                let splitIndex = contentBody.indexOf('<h3');
+                splitIndex = contentBody.indexOf('<h3', splitIndex + 1);
                 contentBody = contentBody.slice(0, splitIndex) + `${adHtml}\n\n` + contentBody.slice(splitIndex);
             }
         } else {
@@ -566,6 +585,22 @@ async function main() {
             if (id) tagIds.push(id);
         }
 
+        // 📍 追加：アイキャッチ画像 (featured_media) のアップロード処理
+        let featuredMediaId = null;
+        const imageFileName = `${draft.draft_id}.png`;
+        const imagePath = path.join(process.cwd(), 'data', imageFileName);
+
+        try {
+            await fs.access(imagePath); // 画像が存在するか確認
+            console.log(`   🖼️ アイキャッチ画像をアップロード中... (${imageFileName})`);
+            featuredMediaId = await uploadImageToWordPress(imagePath, imageFileName);
+            if (featuredMediaId) {
+                console.log(`      ✅ 画像アップロード成功 (ID: ${featuredMediaId})`);
+            }
+        } catch (err) {
+            console.log(`   ⚠️ アイキャッチ画像が見つかりません: ${imageFileName} (画像なしで投稿します)`);
+        }
+
         // 7. WordPressへ投稿
         const payload = {
             title: draft.title,
@@ -575,6 +610,11 @@ async function main() {
             tags: tagIds,
             slug: draft.slug
         };
+
+        // 📍 追加：画像のアップロードに成功していれば、ペイロードにアイキャッチのIDを追加
+        if (featuredMediaId) {
+            payload.featured_media = featuredMediaId;
+        }
 
         const credentials = Buffer.from(`${WP_USER}:${WP_APP_PASSWORD}`).toString('base64');
         try {
