@@ -15,7 +15,6 @@ get_header();
     <div class="content-container">
         
         <section class="content-section popular-section-full">
-            <?php /* 「話題の記事」の見出しは削除しました */ ?>
             <div class="popular-slider-container">
                 <div class="popular-post-area" id="popularSlider">
                     <?php 
@@ -51,7 +50,6 @@ get_header();
         <section class="content-section location-section">
             <h2 class="section-title-blue">場所から探す</h2>
             <?php
-            // カテゴリーのスラッグと表示名のマッピング
             $regions = [
                 '北海道/東北' => 'hokkaido-tohoku',
                 '関東'       => 'kanto',
@@ -62,12 +60,9 @@ get_header();
             ];
 
             foreach ($regions as $region_name => $slug) :
-                // スラッグからカテゴリー情報を取得
                 $cat = get_category_by_slug($slug);
-                // カテゴリーが存在すればそのリンクを、なければ # をセット
                 $region_link = $cat ? get_category_link($cat->term_id) : '#';
                 
-                // 指定したスラッグのカテゴリーの記事を取得
                 $args = array(
                     'category_name'  => $slug,
                     'posts_per_page' => 5
@@ -179,19 +174,17 @@ get_header();
 </main>
 
 <style>
-/* 話題の記事セクション専用スタイル */
 .popular-section-full {
     width: 100vw;
     position: relative;
     left: 50%;
     transform: translateX(-50%);
-    margin-bottom: 40px;
+    margin: 20px 0 40px;
     overflow: hidden;
 }
 
 .popular-slider-container {
     width: 100%;
-    position: relative;
 }
 
 .popular-post-area {
@@ -199,53 +192,62 @@ get_header();
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
-    -ms-overflow-style: none; /* IE, Edge */
-    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    /* 左右に20pxの余白を追加 */
+    padding: 0 20px;
 }
 
 .popular-post-area::-webkit-scrollbar {
-    display: none; /* Chrome, Safari */
+    display: none;
 }
 
 .slider-item {
-    flex: 0 0 80%; /* スマホなどでは少し次が見えるように80% */
-    max-width: 400px; /* デスクトップで大きくなりすぎないよう調整 */
-    margin: 0 10px;
+    flex: 0 0 85%; /* 余白分を考慮して少し調整 */
+    margin-right: 15px;
     scroll-snap-align: center;
+}
+
+.slider-item:last-child {
+    margin-right: 20px; /* 最後のアイテムの右余白 */
 }
 
 .slider-item img {
     width: 100%;
     height: auto;
-    border-radius: 8px;
+    border-radius: 12px;
     display: block;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* ドットインジケーター */
 .slider-dots {
     text-align: center;
-    margin-top: 15px;
+    margin-top: 20px;
     display: flex;
     justify-content: center;
     gap: 8px;
 }
 
 .dot {
-    width: 10px;
-    height: 10px;
-    background: #ccc;
+    width: 8px;
+    height: 8px;
+    background: #e0e0e0;
     border-radius: 50%;
-    transition: background 0.3s;
+    transition: all 0.3s;
 }
 
 .dot.active {
-    background: #ff8fb1; /* アクティブ時の色 */
+    background: #ff8fb1;
+    transform: scale(1.2);
 }
 
 @media (min-width: 768px) {
+    .popular-post-area {
+        padding: 0 40px; /* PCでは少し広めに */
+    }
     .slider-item {
-        flex: 0 0 20%; /* PCでは5個並ぶ感覚 */
-        max-width: none;
+        flex: 0 0 19%; /* 5個並ぶサイズ感 */
+        margin-right: 1%;
     }
 }
 </style>
@@ -258,7 +260,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (items.length === 0) return;
 
-    // ドットの生成
     items.forEach((_, i) => {
         const dot = document.createElement('div');
         dot.classList.add('dot');
@@ -269,23 +270,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const dots = dotsContainer.querySelectorAll('.dot');
     let currentIndex = 0;
 
-    // 2秒ごとにスクロール
-    setInterval(() => {
-        currentIndex++;
-        if (currentIndex >= items.length) {
-            currentIndex = 0;
-        }
-        
-        const scrollStep = slider.scrollWidth / items.length;
+    function updateSlider() {
+        const itemWidth = items[0].offsetWidth + parseInt(window.getComputedStyle(items[0]).marginRight);
         slider.scrollTo({
-            left: scrollStep * currentIndex,
+            left: itemWidth * currentIndex,
             behavior: 'smooth'
         });
 
-        // ドット更新
         dots.forEach(d => d.classList.remove('active'));
         dots[currentIndex].classList.add('active');
+    }
+
+    setInterval(() => {
+        currentIndex = (currentIndex + 1) % items.length;
+        updateSlider();
     }, 2000);
+
+    // 手動スクロール時のドット同期（おまけ）
+    slider.addEventListener('scroll', () => {
+        const index = Math.round(slider.scrollLeft / items[0].offsetWidth);
+        if(index < dots.length) {
+            dots.forEach(d => d.classList.remove('active'));
+            dots[index].classList.add('active');
+            currentIndex = index;
+        }
+    });
 });
 </script>
 
