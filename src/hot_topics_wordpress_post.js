@@ -200,7 +200,7 @@ ${draft.content}
     "product_name": "商品名（例: ボンボンドロップシール）。※アフィリエイト検索用に使用するため、店舗名ではなく必ずシール等の商品名を記載してください。",
     "status_text": "販売状況の簡潔な説明（例: レジ横で行列ができています！）",
     "confidence_memo": "読者への注意点（例: 在庫切れの可能性が高いので朝イチ推奨）",
-    "tweet_url": "下書き内にある参考XのURLを1つ抽出"
+    "tweet_url": "下書き内にある参考XのURLを1つ抽出（Markdownのカッコやテキストは含めず、https://...から始まる純粋なURL文字列のみを出力すること）"
 }
 `;
     try {
@@ -208,7 +208,13 @@ ${draft.content}
         const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
         const data = JSON.parse(jsonStr);
 
+        // 📍 修正：B-Fと同じ方法で正規表現を使って確実にURLを抽出・クリーンアップ
         let cleanTweetUrl = data.tweet_url || "";
+        const urlMatchA = cleanTweetUrl.match(/https?:\/\/(?:twitter\.com|x\.com)\/[^\s)"\]]+/);
+        if (urlMatchA) {
+            cleanTweetUrl = urlMatchA[0];
+        }
+
         if (cleanTweetUrl.includes("?")) {
             cleanTweetUrl = cleanTweetUrl.split("?")[0];
         }
