@@ -147,61 +147,61 @@ async function generateAndSaveImage(article) {
     let prompt = "";
 
     if (articleType.includes("【A】")) {
-        // 📍 Type A: 目撃情報（リッチでポップ、市名あり）
+        // 📍 Type A: 目撃情報（程よいリッチさ、市名あり、右上赤スタンプ）
         const color = getThemeColor(region);
         console.log(`   ℹ️ 設定[A]: ${displayLocation} / Color: ${color}`);
 
         prompt = `
-            You are a professional illustrator creating a **rich, detailed, pop-style hand-drawn illustration** for a web article.
-            The image conveys a "Breaking News" report about finding a popular item.
+            You are a professional illustrator creating a **well-balanced, pop-style hand-drawn illustration** for a web article.
+            The image conveys a "Breaking News" report about finding a popular item. It should be playful and cute, but NOT overly cluttered.
 
             **[Design Configuration]**
             * **Aspect Ratio**: 16:9
-            * **Style**: Hand-drawn with colored pencils/markers. **Not simple.** Full of fun details, patterns, and decorations (sparkles, stars, dots).
-            * **Background**: A **pale, light shade** based on the color ${color}, with a fun pattern like polka dots or stripes.
-            * **Composition**: Center a cute, stylized illustration of the product package ("${product_name}", which is a pack of **stickers**, not candy). Surround it with fun doodles.
+            * **Style**: Clean hand-drawn style with colored pencils or markers. A good balance of negative space and cute elements.
+            * **Background**: A **pale, light shade** based on the color ${color}. You may use a very subtle, soft pattern (like faint polka dots or a light grid), but keep it unobtrusive.
+            * **Composition**: Center a cute illustration of the product package ("${product_name}", which is a pack of **stickers**, not candy).
 
             **[Text Elements (Mandatory)]**
             1.  **"目撃速報" Stamp**:
-                * Text: "目撃速報"
+                * Text: "目撃速報" (Breaking News)
                 * Style: Red rubber stamp, tilted diagonally in the **Top Right corner**.
             2.  **Location Name**:
                 * Text: "${prefecture}" (Large)
                 * ${cityName ? `Text: "${cityName}" (Smaller, below prefecture)` : ""}
-                * Position: Prominently placed near the center.
-                * Style: Fun, bold, hand-drawn font with an outline.
+                * Position: Prominently placed near the center or beside the product.
+                * Style: Fun, bold, hand-drawn font with a soft outline to make it readable.
 
             **[Absolute Rules]**
-            * Make it look lively, exciting, and full of "Yume-Kawaii" pop energy.
-            * The product is **STICKERS**.
-            * Render Japanese text precisely.
+            * Keep the overall design "just right" — neither too empty nor too noisy.
+            * The product is **STICKERS**, not candy.
+            * Ensure the Japanese text is rendered exactly as written.
         `;
 
     } else {
-        // 📍 Type B-F: その他（リッチでポップ、キーワード追加）
+        // 📍 Type B-F: その他（程よいリッチさ、キーワード追加）
         const articleTitle = article.title || "No Title";
         const contentSummary = article.content ? article.content.substring(0, 100) : articleTitle;
         const keywordsStr = extra_keywords.length > 0 ? extra_keywords.join(", ") : "なし";
         console.log(`   ℹ️ 設定[B-F]: Title: ${articleTitle.substring(0, 20)}... / Keywords: ${keywordsStr}`);
 
         prompt = `
-            You are a professional illustrator creating a **rich, detailed, pop-style hand-drawn illustration** for a web article.
-            Create an impactful visual that conveys the main point at a glance.
+            You are a professional illustrator creating a **well-balanced, pop-style hand-drawn illustration** for a web article.
+            Create an impactful visual that conveys the main point at a glance, without becoming overly cluttered.
 
             **[Absolute Rules]**
-            1. **One Main Visual**: Pick ONE main point and draw it big in the center.
-            2. **Rich Details**: Add fun patterns, decorations, and background elements to make it lively. **Not simple.**
+            1. **One Main Visual**: Pick ONE main point related to the title/content and draw it big in the center.
+            2. **Balanced Details**: Add moderate patterns and cute decorations to make it lively, but keep a good amount of negative space.
             3. **Minimal Text**: Use very little text (main keywords only).
 
             **[Design Configuration]**
             * **Aspect Ratio**: 16:9
-            * **Touch**: Hand-drawn style (colored pencils, crayons). Warm, cute, "Yume-Kawaii" pop atmosphere with pastel colors.
-            * **Background**: Fun patterns (dots, stars) using pastel colors.
+            * **Touch**: Hand-drawn style (colored pencils, crayons). Warm, cute, "Yume-Kawaii" pop atmosphere.
+            * **Background**: Soft pastel colors with subtle, cute patterns (dots, faint stars).
 
             **[Article Context]**
-            * **Subject**: "${product_name}" refers to popular **puffy stickers**.
+            * **Subject**: "${product_name}" refers to popular **puffy stickers** (not candy).
             * **Title**: ${articleTitle}
-            * **Important Keywords**: ${keywordsStr} (Incorporate these visually if possible).
+            * **Important Keywords**: ${keywordsStr} (Incorporate these visually if possible, like drawing a related character or writing the shop name).
             * **Content Summary**: ${contentSummary}...
         `;
     }
