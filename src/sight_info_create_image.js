@@ -59,12 +59,12 @@ class ImageGenerator {
      * 都道府県からテーマカラーを決定する
      */
     getThemeColor(prefectureName) {
-        if (!prefectureName) return "Black"; // 不明な場合は黒
+        if (!prefectureName) return "#000000"; // 不明な場合は黒
 
         const cleanPref = prefectureName.replace(/[都府県]$/, '');
         const regionId = CONFIG.prefToRegionMap[cleanPref];
 
-        return REGION_COLORS[regionId] || "Black";
+        return REGION_COLORS[regionId] || "#000000";
     }
 
     /**
@@ -74,7 +74,7 @@ class ImageGenerator {
         const color = this.getThemeColor(article.prefecture);
         const prefCity = `${article.prefecture || ""}${article.city || ""}`;
 
-        // 📍 AIの解釈を固定化するため、論理解像度(1920x1080)を基準にした定量的な仕様書形式に変更
+        // 論理解像度(1920x1080)を基準にした定量的な仕様書形式
         const prompt = `
             You are a precise graphic design rendering engine. Create an image based strictly on the following specifications.
 
@@ -86,37 +86,38 @@ class ImageGenerator {
             [Border Specification]
             - Style: Solid line
             - Color: ${color}
-            - Thickness: 40px
+            - Thickness: exactly 80px
             - Position: Inner border perfectly aligned with the canvas edge.
 
             [Typography & Layout Specification]
             - Font Family: "M PLUS Rounded 1c ExtraBold" or "Gen Jyuu Gothic Heavy" (A very thick, rounded, friendly Japanese pop font). No sharp Gothic or Mincho fonts.
             - Text Alignment: Center-aligned both horizontally and vertically.
-            - Margin/Padding: Maintain at least 150px of white space between the inner edge of the border and the text block.
+            - Padding (Space between inner border edge and text block): exactly 120px on all sides (top, bottom, left, right).
 
             [Text Content & Exact Sizing]
-            Render the following three lines of text from top to bottom, perfectly centered on the canvas:
+            Render the following three lines of text from top to bottom, forming a single centered text block:
 
             - Line 1:
               - Text: "【目撃速報】"
-              - Font Size: 80px
+              - Font Size: exactly 80px
               - Font Color: Solid Black (#000000)
             
-            - Spacing between Line 1 and Line 2: 60px
+            - Spacing between Line 1 and Line 2: exactly 60px
 
             - Line 2:
               - Text: "${prefCity}"
-              - Font Size: 180px
+              - Font Size: exactly 160px
               - Font Color: Solid Black (#000000)
 
-            - Spacing between Line 2 and Line 3: 80px
+            - Spacing between Line 2 and Line 3: exactly 80px
 
             - Line 3:
               - Text: "${article.product_name}"
-              - Font Size: 100px
+              - Font Size: exactly 80px
               - Font Color: Solid Black (#000000)
 
             [Strict Constraints]
+            - The specified pixel values for border thickness (80px), padding (120px), font sizes (80px, 180px, 100px), and line spacing (60px, 80px) are absolute and MANDATORY instructions. They must be rendered precisely as specified without any deviation.
             - Do NOT add any illustrations, icons, watermarks, shadows, gradients, or background patterns.
             - The text MUST be rendered exactly as written in perfect Japanese characters without typos or artifacts.
         `;
