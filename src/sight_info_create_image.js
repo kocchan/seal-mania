@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { dbClient } from "./utils.js";
 import { CONFIG } from "./config.js";
 import { GoogleGenAI } from "@google/genai";
-import { fileURLToPath } from 'url';
 
 // =====================================
 // ⚙️ 設定
@@ -17,7 +17,6 @@ const APP_CONFIG = {
 };
 
 // 地方（親カテゴリーID）ごとの枠線カラー設定
-// ※ config.js の prefToRegionMap のIDに対応させています
 const REGION_COLORS = {
     863: "LightBlue", // 北海道・東北
     871: "Pink",      // 関東
@@ -81,25 +80,31 @@ class ImageGenerator {
         const color = this.getThemeColor(article.prefecture);
         const prefCity = `${article.prefecture || ""}${article.city || ""}`;
 
-        // 画像生成プロンプト (レイアウト指示は英語の方が精度が高いため英語で指定)
+        // 📍 画像生成プロンプトを日本語＆文字描画重視に最適化（フォント・余白調整版）
         const prompt = `
-            Create a simple, minimalist graphic banner.
-            Background: Solid white.
-            Border: Thick solid ${color} border around the entire image.
-            Center text layout (arranged vertically with good spacing):
-            Line 1: '【目撃速報】' in bold black font.
-            Line 2: '${prefCity}' in very large, extra bold black font.
-            Line 3: '${article.product_name}' in bold black font.
-            
-            Crucial Instruction: The text MUST be exactly as provided, written perfectly in Japanese. Ensure high-fidelity text rendering. Do not add any extra illustrations, shadows, or decorations.
+            背景は真っ白のシンプルなグラフィックバナーを作成してください。
+            画像全体を囲むように、太い実線の枠線（色: ${color}）を描画してください。
+            枠線の内側に、十分な余白（パディング）を空けて、中央に以下の日本語テキストを配置してください。
+            テキストは、親しみやすく、楽しく、ポップな印象の手書き風丸文字フォントを使用してください。
+
+            ・1行目: 黒色で、中くらいのサイズの「【目撃速報】」
+            ・2行目: 黒色で、1行目より少しだけ大きいサイズの「${prefCity}」
+            ・3行目: 黒色で、中くらいのサイズの「${article.product_name}」
+
+            各行の間にも適度な間隔を空け、全体的に窮屈にならないようにバランスよく配置してください。
+            イラストや影、余計な装飾は一切追加しないでください。
         `;
 
         try {
             console.log(`🎨 画像生成中: ${prefCity} - ${article.product_name} (Color: ${color})`);
 
             const response = await this.ai.models.generateContent({
-                model: "gemini-2.5-flash-image",
+                model: "gemini-3-pro-image-preview",
                 contents: prompt,
+                config: {
+                    aspectRatio: "16:9",
+                    outputMimeType: "image/png"
+                }
             });
 
             // Base64データを抽出してファイルに保存
