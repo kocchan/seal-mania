@@ -133,7 +133,8 @@ async function saveToDynamoDB(keywords, now) {
                     id: crypto.randomUUID(),
                     word: word,
                     created_date: formattedNow,
-                    fetch_date: formattedNow
+                    fetch_date: formattedNow,
+                    is_processed: false // 📍 追加：処理済みフラグをfalseで登録
                 }
             }));
         } catch (err) {
