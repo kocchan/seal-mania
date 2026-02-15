@@ -56,8 +56,8 @@ async function saveDraftArticle(draftData, targetWord) {
                 tags: draftData.tags,
                 slug: draftData.slug,
                 reference_urls: draftData.reference_urls || [],
-                tweet_id: draftData.tweet_id || [],           // 📍 追加：参考にしたツイートのID（配列）
-                tweetpostdata: draftData.tweetpostdata || [], // 📍 追加：参考にしたツイートの日時（配列）
+                tweet_id: draftData.tweet_id || [],
+                tweetpostdata: draftData.tweetpostdata || [],
                 evaluation_score: draftData.evaluation_score || 0,
                 is_processed: false,
                 is_rejected: false,
@@ -95,13 +95,16 @@ async function markTweetsAsProcessed(tweetIds) {
 async function generateDraftArticle(word, tweets) {
     console.log(`🤖 Gemini APIで「${word}」の記事を下書き中...`);
 
-    // 📍 変更：AIがIDと日時を認識できるように、抽出するデータに id を追加
     const simplifiedTweets = tweets.map(t => ({
         id: t.tweet_id,
         text: t.text,
         url: t.url,
         time: t.post_time_str
     }));
+
+    // 📍 変更：システム側で「今日の日付」を取得してAIに正確な基準を与える
+    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const todayString = `${nowJST.getUTCFullYear()}年${nowJST.getUTCMonth() + 1}月${nowJST.getUTCDate()}日`;
 
     const prompt = `
 # 役割
@@ -128,6 +131,7 @@ async function generateDraftArticle(word, tweets) {
 * **【A】目撃情報**（データが「昨日〜今日」の具体的な店舗での発見報告の場合）
   * 読者が今すぐ買いに行けるよう、場所と時間を簡潔に伝える。
   * **【独自視点の付加】**あなたの知識ベースを活用し、「イオンなら食玩より文具コーナー、ドンキならレジ前」など、その店舗系列における**具体的な陳列場所の傾向**や、**競争率（ライバルの多さ）の予測**を加えること。
+  * **【追加ルール：厳格な時間フィルタリング】本日の日付は「${todayString}」です。入力データの \`time\` 属性を必ず確認し、「本日」または「昨日」の投稿のみを抽出して記事を構成してください。それより古い過去のツイートは、目撃情報としては役に立たないため、絶対に引用・参考データに含めないでください。**
 
 * **【B】入荷・抽選情報（今月の新作）**（新作の発売情報や、ラインナップに関する話題の場合）
   * **【独自視点の付加】**シールの材質（ホログラム、ぷっくり感など）の物理的な魅力や、過去の同メーカーの傾向から推測される**コンプリート難易度（箱買いの必要性やレアの封入率）**についてマニアックに考察すること。
@@ -144,15 +148,15 @@ async function generateDraftArticle(word, tweets) {
 * **【F】店舗攻略情報 / 一般ガイド**（全体のトレンド分析の場合）
   * **【独自視点の付加】**店員さんへのスムーズな在庫確認の仕方（マナー）や、100均アイテムを使った「**シンデレラフィットする収納術**」など、コレクターの検索需要が高い周辺知識を網羅すること。
 
-# 【追加】カテゴリIDの選択ルールとID一覧
+# 【追加】カテゴリの選択ルールとカテゴリ名一覧
 記事のカテゴリー（categories）は、必ず以下のカテゴリ名の配列（文字列）として出力してください。数値のIDは使用しないでください。
 【必須(MUST)】と記載されているものは必ず含め、【任意(WANT)】のものは記事の内容に該当する場合のみ追加してください。
 
 【選択ルール】
 * 【A】の場合は ["都道府県別"(MUST), 該当する都道府県名(MUST), 該当する店舗名(WANT)]
 * 【B】の場合は ["入荷・抽選情報"(MUST), "今月の新作"(MUST), 該当キャラクター名(WANT)]
-* 【C】の場合は ["入荷・抽選情報"(MUST), "抽選・予約情報"(MUST), 該当店舗名(WANT)]
-* 【D】の場合は ["入荷・抽選情報"(MUST), "オンライン通販"(MUST)]
+* 【C】の場合は ["入荷・抽選情報"(MUST), "抽選・予約情報"(MUST), 該当店舗名(WANT), "都道府県別"(WANT), 該当する都道府県名(WANT), 該当する店舗名(WANT)]
+* 【D】の場合は ["入荷・抽選情報"(MUST), "オンライン通販"(MUST), 該当店舗名(WANT), "都道府県別"(WANT), 該当する都道府県名(WANT), 該当する店舗名(WANT)]
 * 【E】の場合は ["キャラクターシール"(MUST), 該当キャラクター名(MUST)]
 * 【F】の場合は ["店舗攻略情報" または "一般ガイド"(MUST), 該当店舗名(WANT)]
 
@@ -215,8 +219,8 @@ ${JSON.stringify(simplifiedTweets, null, 2)}
     "tags": ["関連タグ1", "関連タグ2", "関連タグ3"], // 記事の内容に関連するもの全てを単語で添付してください。ただし、「シール」「抽選」「推し活」「ボンボンドロップ」などの一般的すぎる単語は含めず、その投稿ならではの具体的な名詞のみを含めてください。
     "slug": "unique-slug-example-in-english",
     "reference_urls": ["引用・参考にしたXのURL（content内にあるXのURLのみ）の配列"],
-    "tweet_id": ["引用・参考にしたXのid（content内で引用したツイートのidのみ）の配列（文字列の配列）"], // 📍 追加
-    "tweetpostdata": ["引用・参考にしたXの投稿日時(time)の配列（文字列の配列）"], // 📍 追加
+    "tweet_id": ["引用・参考にしたXのid（content内で引用したツイートのidのみ）の配列（文字列の配列）"],
+    "tweetpostdata": ["引用・参考にしたXの投稿日時(time)の配列（文字列の配列）"],
     "evaluation_score": 10 // 1〜10の評価スコア（数値）
   }
 ]
