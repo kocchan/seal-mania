@@ -8,7 +8,7 @@ get_header();
 <main id="main" class="main front-page-main" role="main">
     
     <div class="main-visual-area">
-        <img src="http://www.seal-search.com/wp-content/uploads/2026/02/Gemini_Generated_Image_payaoppayaoppaya-scaled.png" alt="BONBON DROP" class="main-visual-img pc-only">
+        <img src="http://www.seal-search.com/wp-content/uploads/2026/02/Gemini_Generated_Image_sw3lrxsw3lrxsw3l.png" alt="BONBON DROP" class="main-visual-img pc-only">
         <img src="http://www.seal-search.com/wp-content/uploads/2026/02/Gemini_Generated_Image_hn23y9hn23y9hn23-2.png" alt="BONBON DROP" class="main-visual-img sp-only">
     </div>
 
@@ -48,18 +48,27 @@ get_header();
         <section class="content-section location-section">
             <h2 class="section-title-blue">場所から探す</h2>
             <?php
+            // カテゴリーのスラッグと表示名のマッピング
             $regions = [
                 '北海道/東北' => 'hokkaido-tohoku',
                 '関東'       => 'kanto',
                 '中部'       => 'chubu',
                 '近畿'       => 'kinki',
-                '中国/九州'   => 'chugoku-kyushu',
+                '中国・四国'   => 'chugoku-shikoku',
+                '九州・沖縄'   => 'kyushu-okinawa',
             ];
 
             foreach ($regions as $region_name => $slug) :
+                // スラッグからカテゴリー情報を取得
                 $cat = get_category_by_slug($slug);
+                // カテゴリーが存在すればそのリンクを、なければ # をセット
                 $region_link = $cat ? get_category_link($cat->term_id) : '#';
-                $args = array('category_name' => $slug, 'posts_per_page' => 5);
+                
+                // 指定したスラッグのカテゴリーの記事を取得
+                $args = array(
+                    'category_name'  => $slug,
+                    'posts_per_page' => 5
+                );
                 $query = new WP_Query($args);
             ?>
             <div class="region-block">
@@ -76,7 +85,9 @@ get_header();
                             </a>
                         <?php endwhile; wp_reset_postdata(); ?>
                     </div>
-                    <div class="more-link-wrap"><a href="<?php echo esc_url($region_link); ?>" class="more-link">もっと見る＞</a></div>
+                    <?php if ($cat) : ?>
+                        <div class="more-link-wrap"><a href="<?php echo esc_url($region_link); ?>" class="more-link">もっと見る＞</a></div>
+                    <?php endif; ?>
                 <?php else : ?>
                     <div class="no-posts-message">記事準備中です＞＜<br>更新されるまでお待ちください</div>
                 <?php endif; ?>
