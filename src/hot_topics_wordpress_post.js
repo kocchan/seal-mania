@@ -1,3 +1,5 @@
+import fs from 'fs/promises';
+import path from 'path';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 import axios from 'axios';
@@ -13,7 +15,7 @@ dotenv.config();
 // =====================================
 const DRAFT_TABLE = "TrendKeywords_DraftArticle";
 const RAW_TWEETS_TABLE = "TrendKeywords_RawTweets";
-const ARTICLE_TABLE = "TrendKeywords_article"; // 新規作成する保存用テーブル
+const ARTICLE_TABLE = "TrendKeywords_article";
 const DEFAULT_CATEGORY_ID = 97;
 
 const GEN_AI_KEY = process.env.GEMINI_API_KEY;
@@ -27,7 +29,6 @@ const AFFILIATE_ID_RAKUTEN = '50f17d50.13213066.50f17d51.fed7b043';
 
 // Gemini初期化
 const genAI = new GoogleGenerativeAI(GEN_AI_KEY);
-// 検閲・整形用（安定したJSON出力用）
 const jsonModel = genAI.getGenerativeModel({
     model: "gemini-3-pro-preview",
     generationConfig: { responseMimeType: "application/json" }
@@ -41,7 +42,6 @@ const termCache = { categories: {}, tags: {} };
 // 🗄️ DynamoDB データ取得・更新
 // =====================================
 
-// 未処理の下書きを取得
 async function fetchUnprocessedDrafts() {
     try {
         console.log(`📚 DynamoDB (${DRAFT_TABLE}) から未処理の下書きを取得中...`);
@@ -57,7 +57,6 @@ async function fetchUnprocessedDrafts() {
     }
 }
 
-// B〜Fパターン用の関連Rawツイートを取得
 async function fetchRawTweetsByWord(word) {
     try {
         const result = await dbClient.send(new ScanCommand({
@@ -71,7 +70,6 @@ async function fetchRawTweetsByWord(word) {
     }
 }
 
-// 下書きのステータスを更新（リジェクト or 処理完了）
 async function updateDraftStatus(draftId, isProcessed, isRejected) {
     try {
         await dbClient.send(new UpdateCommand({
@@ -89,7 +87,6 @@ async function updateDraftStatus(draftId, isProcessed, isRejected) {
     }
 }
 
-// 投稿完了した記事をDBに保存
 async function savePublishedArticle(articleData) {
     try {
         await dbClient.send(new PutCommand({
@@ -149,9 +146,7 @@ async function enhanceTypeA(draft) {
 あなたはプロのWebライターです。以下の記事下書きと設定をもとに、指定されたJSONフォーマットでデータを出力してください。
 記事のトピックとなっている「店舗」の実際の住所をGoogle検索等で推測・特定し、記載してください。
 
-【執筆ルール（AIっぽさの排除）】
-* 「この記事を書いた人の顔（個性）が浮かぶか？」と自問してください。
-* 不自然な接続詞（また、さらに等）の連続を避け、文末（〜です。〜ます。）のリズム感を整えてください。
+【執筆ルール】
 * 固有名詞や数字はファクトチェックした体で正確に記載してください。
 
 【記事下書き】
@@ -166,8 +161,7 @@ ${draft.content}
     "product_name": "商品名（例: ボンボンドロップシール）",
     "status_text": "販売状況の簡潔な説明（例: レジ横で行列ができています！）",
     "confidence_memo": "読者への注意点（例: 在庫切れの可能性が高いので朝イチ推奨）",
-    "tweet_url": "下書き内にある参考XのURLを抽出",
-    "html_content": "記事の本文（『3秒でわかる結論』『現場のリアルな声』『詳細分析』『読者へのアドバイス』『まとめ』を含むMarkdown/HTML混合の本文。※挨拶は不要）"
+    "tweet_url": "下書き内にある参考XのURLを1つ抽出"
 }
 `;
     try {
@@ -175,36 +169,52 @@ ${draft.content}
         const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
         const data = JSON.parse(jsonStr);
 
-        // ユーザー指定のHTMLテンプレートを適用
+        // 📍 修正：URLをクリーンにする（パラメータ削除 ＆ x.comをtwitter.comへ置換）
+        let cleanTweetUrl = data.tweet_url || "";
+        if (cleanTweetUrl.includes("?")) {
+            cleanTweetUrl = cleanTweetUrl.split("?")[0];
+        }
+        cleanTweetUrl = cleanTweetUrl.replace("[https://x.com](https://x.com)", "[https://twitter.com](https://twitter.com)");
+
         const mapQuery = encodeURIComponent(data.shop_address || data.shop_name);
         const mapEmbedUrl = `https://maps.google.co.jp/maps?output=embed&q=${mapQuery}&t=m&z=15`;
 
+        // 📍 修正：WordPressの標準的なTwitter埋め込みブロック構造にする
         const templateHtml = `
-        <p>${data.prefecture || "エリア不明"}${data.city || ""}の「${data.shop_name}」にて、${data.product_name}の目撃情報があります！<br>
-        ${data.status_text} お近くの方はチェックしてみる価値がありそうです。</p>
-        <p><strong>📅 目撃・入荷時期</strong> 本日〜昨近</p>
-        <h3>📦 販売状況・詳細</h3>
-        <ul>
-            <li><strong>内容:</strong> ${data.product_name}が販売されていたとの報告あり。</li>
-            <li><strong>注意:</strong> ${data.confidence_memo}</li>
-        </ul>
-        <h3>🔗 情報ソース（現地ポスト）</h3>
-        <figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">
-            <div class="wp-block-embed__wrapper">${data.tweet_url}</div>
-        </figure>
-        <h3>📍 店舗情報</h3>
-        <ul>
-            <li><strong>店舗名:</strong> ${data.shop_name}</li>
-            <li><strong>住所:</strong> ${data.shop_address}</li>
-        </ul>
-        <div style="width: 100%; height: 350px; margin-top: 20px; margin-bottom: 40px;">
-            <iframe width="100%" height="100%" frameborder="0" style="border:0; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);" src="${mapEmbedUrl}" allowfullscreen></iframe>
-        </div>
-        `;
+<p>${data.prefecture || "エリア不明"}${data.city || ""}の「${data.shop_name}」にて、${data.product_name}の目撃情報があります！<br>
+${data.status_text} お近くの方はチェックしてみる価値がありそうです。</p>
 
-        // テンプレートHTMLとAIが書いた詳細本文を合体
-        data.html_content = templateHtml + "\n\n" + data.html_content;
-        return data;
+<p><strong>📅 目撃・入荷時期</strong> 本日〜昨近</p>
+
+<h3>📦 販売状況・詳細</h3>
+<ul>
+    <li><strong>内容:</strong> ${data.product_name}が販売されていたとの報告あり。</li>
+    <li><strong>注意:</strong> ${data.confidence_memo}</li>
+</ul>
+
+<h3>🔗 情報ソース（現地ポスト）</h3>
+<figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">
+    <div class="wp-block-embed__wrapper">
+        ${cleanTweetUrl}
+    </div>
+</figure>
+
+<h3>📍 店舗情報</h3>
+<ul>
+    <li><strong>店舗名:</strong> ${data.shop_name}</li>
+    <li><strong>住所:</strong> ${data.shop_address}</li>
+</ul>
+
+<div style="width: 100%; height: 350px; margin-top: 20px; margin-bottom: 40px;">
+    <iframe width="100%" height="100%" frameborder="0" style="border:0; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);" src="${mapEmbedUrl}" allowfullscreen></iframe>
+</div>
+`;
+
+        // 📍 修正：AIが書いた下書き本文(draft.content)とは合体させず、テンプレートのみを返す
+        return {
+            html_content: templateHtml,
+            product_name: data.product_name
+        };
     } catch (e) {
         console.error("Type A Enhancement Error:", e);
         return null;
@@ -243,12 +253,12 @@ ${extraInfo}
         const res = await writerModel.generateContent(prompt);
         return res.response.text();
     } catch (e) {
-        return draft.content; // エラー時は元のテキストをそのまま返す
+        return draft.content;
     }
 }
 
 // =====================================
-// ヘルパー・アフィリエイト・WP (既存のまま+微修正)
+// ヘルパー・アフィリエイト・WP
 // =====================================
 
 async function getTermId(taxonomy, termName) {
@@ -282,7 +292,7 @@ async function getTermId(taxonomy, termName) {
 async function fetchYahooProduct(keyword) {
     if (!keyword) return null;
     try {
-        const response = await axios.get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', {
+        const response = await axios.get('[https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch](https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch)', {
             params: { appid: YAHOO_CLIENT_ID, query: keyword, results: 1, sort: '-score', image_size: 300 }
         });
         const hits = response.data.hits;
@@ -297,7 +307,7 @@ async function fetchYahooProduct(keyword) {
 function generatePochippLikeHtml(keyword, productData) {
     if (!keyword) return '';
     const itemName = productData ? productData.name : `${keyword}`;
-    const itemImage = (productData && productData.image) ? productData.image : 'https://placehold.jp/300x300.png?text=No%20Image';
+    const itemImage = (productData && productData.image) ? productData.image : '[https://placehold.jp/300x300.png?text=No%20Image](https://placehold.jp/300x300.png?text=No%20Image)';
     const itemPrice = productData ? `¥${productData.price.toLocaleString()}〜` : '';
     const encKey = encodeURIComponent(keyword);
     const amazonUrl = `https://www.amazon.co.jp/s?k=${encKey}&tag=${AFFILIATE_ID_AMAZON}`;
@@ -364,7 +374,7 @@ async function main() {
                 finalHtmlContent = enhancedData.html_content;
                 searchKeyword = enhancedData.product_name || draft.word;
             } else {
-                finalHtmlContent = draft.content; // 失敗時のフォールバック
+                finalHtmlContent = draft.content;
             }
         } else {
             const extraTweets = await fetchRawTweetsByWord(draft.word);
@@ -417,14 +427,14 @@ async function main() {
             });
             console.log(`   ✅ WP投稿成功: ID ${response.data.id}`);
 
-            // 8. 投稿データをDynamoDB (TrendKeywords_article) に保存
+            // 8. 投稿データをDynamoDB に保存
             const articleDataToSave = {
                 word: draft.word,
                 wp_post_id: response.data.id,
                 title: payload.title,
                 content: payload.content,
-                categories: draft.categories, // 元の文字列配列を保存
-                tags: draft.tags,             // 元の文字列配列を保存
+                categories: draft.categories,
+                tags: draft.tags,
                 slug: payload.slug,
                 reference_urls: draft.reference_urls,
                 tweet_ids: draft.tweet_id,
@@ -439,7 +449,6 @@ async function main() {
             console.error(`   ❌ WP投稿エラー: ${error.response?.data?.message || error.message}`);
         }
 
-        // API制限対策の待機
         await new Promise(res => setTimeout(res, 5000));
     }
 
