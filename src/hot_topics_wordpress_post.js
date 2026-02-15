@@ -221,26 +221,33 @@ ${data.status_text} お近くの方はチェックしてみる価値がありそ
     }
 }
 
-// 3. 【B】〜【F】用の記事肉付け・強化
+// 3. 【B】〜【F】用の記事肉付け・強化・HTML化
 async function enhanceTypeBtoF(draft, extraTweets) {
-    console.log(`   ✍️ 【B〜F】関連ツイートを元に記事を肉付け・強化中...`);
+    console.log(`   ✍️ 【B〜F】関連ツイートを元に記事を肉付け・強化・HTML化中...`);
     const extraInfo = extraTweets.map(t => t.text).join('\n');
 
     const prompt = `
-あなたはプロのWebライターです。以下の【元の下書き】に対し、【追加の関連ツイート】の情報を加味して、記事の内容に深みを増すように再編集・肉付けを行ってください。
+あなたはプロのWebライターです。以下の【元の下書き】に対し、【追加の関連ツイート】の情報を加味して、記事の内容に深みを増すように再編集し、WordPressにそのまま投稿できるHTML形式で出力してください。
 ※趣旨と違う無関係なノイズ情報は無視してください。
 
-【執筆ルール（AIっぽさの排除）】
+【執筆・HTMLコーディングルール】
 * 「この記事を書いた人の顔（個性）が浮かぶか？」と自問してください。
 * 誰が書いても同じになる一般論ではなく、マニアックな視点を入れてください。
 * 不自然な接続詞（また、さらに等）の連続を避け、文末のリズム感を整えてください。
 * 固有名詞や数字は正確に。
+* **出力はMarkdownではなく、すべてHTMLタグ（<h2>, <h3>, <p>, <ul>, <li>, <blockquote>など）を使用してください。**
+* X（Twitter）のURLを記載する際は、単なるテキストリンク（<a href="...">）ではなく、必ず以下のWordPress埋め込み用HTMLフォーマットを使用してください。（URLの ? 以降のパラメータは削除したクリーンなURLを入れてください）
+  <figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">
+      <div class="wp-block-embed__wrapper">
+          https://twitter.com/xxxx/status/123456789
+      </div>
+  </figure>
 
-【構成フォーマット】
-1. 簡単な結論（3秒でわかる結論）
-2. ファクトとしての現場の声（URLを直下に記載）
-3. 詳細な解説と考察
-4. 攻略方法やTips（なければ省略可）
+【構成フォーマット（以下の流れでHTMLを作成）】
+1. 簡単な結論を一文で※ <ul> と <li> を使用
+2. 現場の声（<blockquote> と 上記のX埋め込みフォーマットを使用）
+3. 詳細な解説と考察（<h2> と <p> を使用）
+4. 攻略方法やTipsや補足情報（なければ省略可）
 5. まとめ（締めの言葉）
 
 【元の下書き】
@@ -248,12 +255,21 @@ ${draft.content}
 
 【追加の関連ツイート情報】
 ${extraInfo}
+
+必ず以下のJSONスキーマに従って出力してください。Markdownのコードブロック(json)は不要です。直接JSONのみを出力してください。
+{
+    "html_content": "完成したHTML形式の記事本文"
+}
 `;
     try {
-        const res = await writerModel.generateContent(prompt);
-        return res.response.text();
+        // 📍 HTML構文崩れを防ぐため jsonModel (JSON出力モード) を使用
+        const res = await jsonModel.generateContent(prompt);
+        const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
+        const data = JSON.parse(jsonStr);
+        return data.html_content;
     } catch (e) {
-        return draft.content;
+        console.error("Type B-F Enhancement Error:", e);
+        return draft.content; // エラー時は元のテキストをそのまま返す
     }
 }
 
