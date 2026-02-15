@@ -23,6 +23,12 @@ export const CONFIG = {
         "\"ぷっくり シール\" (\"入荷\" OR \"在庫\" OR \"売ってた\" OR \"買えた\" OR \"ない\" OR \"あった\") -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -譲 -求 -amzn -r10.to -afl.rakuten -\"シル活\""
     ],
 
+    trend_queries: [
+        "\"ボンボンドロップ\" -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -amzn -r10.to -afl.rakuten ",
+        "\"シール\" -PR -AD -Amazon -楽天 -メルカリ -予約 -交換  -amzn -r10.to -afl.rakuten ",
+        "\"ボンドロ\" -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -amzn -r10.to -afl.rakuten "
+    ],
+
     scraping: {
         headless: true,      // ブラウザを表示させない場合は true
         queryDelay: 3000,    // 検索クエリごとの待機時間(ms)
