@@ -27,6 +27,31 @@ const PREF_ROMAJI_MAP = {
 };
 
 // =====================================
+// ▼▼▼ 市区町村の英語（ローマ字）化 API ▼▼▼
+// =====================================
+async function getEnglishCityName(cityStr) {
+    if (!cityStr || cityStr === "unknown") return "unknown";
+    try {
+        // Google翻訳の簡易APIを利用して「四日市市」→「Yokkaichi City」等に変換
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(cityStr)}`;
+        const res = await axios.get(url);
+        let englishName = res.data[0][0][0];
+
+        // 小文字化し、「city」「ward(区)」「town(町)」などを除去してスッキリさせる
+        englishName = englishName.toLowerCase()
+            .replace(/\b(city|ward|town|village|prefecture)\b/g, '') // CityやWardを削除
+            .trim()
+            .replace(/[^a-z0-9]+/g, '-') // 空白や記号をハイフンに置換
+            .replace(/^-|-$/g, '');     // 先頭や末尾のハイフンを除去
+
+        return englishName || "unknown";
+    } catch (error) {
+        console.error(`      ⚠️ 市区町村の英語化失敗 (${cityStr}):`, error.message);
+        return "unknown"; // 失敗時はunknownを返す
+    }
+}
+
+// =====================================
 // ▼▼▼ Yahoo!ショッピング検索 (画像取得) ▼▼▼
 // =====================================
 async function fetchYahooProduct(keyword) {
@@ -81,57 +106,85 @@ function generatePochippLikeHtml(keyword, productData) {
 
     return `
     <div style="border: 2px solid #f2f2f2; border-radius: 4px; padding: 15px; margin: 20px 0 40px; background: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); width: 100%; box-sizing: border-box;">
+        
         <div style="flex: 0 0 120px; width: 120px; display: flex; justify-content: center; align-items: center; margin: 0 auto;">
             <a href="${mainLinkUrl}" target="_blank" rel="nofollow" style="display:block; border: none; box-shadow: none; background: none;">
                 <img src="${itemImage}" alt="${keyword}" style="width: 100%; height: auto; max-height: 120px; object-fit: contain; border: none; margin: 0; padding: 0;">
             </a>
         </div>
+
         <div style="flex: 1 1 250px; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
             <div style="margin-bottom: 15px; text-align: left;">
                 <a href="${mainLinkUrl}" target="_blank" rel="nofollow" style="font-weight: bold; color: #333; text-decoration: none; font-size: 14px; line-height: 1.4; display: block; border: none;">${itemName}</a>
                 <div style="color: #d32f2f; font-size: 13px; margin-top: 5px;">${itemPrice}</div>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
-                <a href="${amazonUrl}" target="_blank" rel="nofollow" style="width: 100%; display: flex; justify-content: center; align-items: center; background: #ff9900; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #cc7a00; box-sizing: border-box;">Amazon</a>
-                <a href="${rakutenUrl}" target="_blank" rel="nofollow" style="width: 100%; display: flex; justify-content: center; align-items: center; background: #bf0000; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #990000; box-sizing: border-box;">楽天市場</a>
-                <a href="${yahooSearchUrl}" target="_blank" rel="nofollow" style="width: 100%; display: flex; justify-content: center; align-items: center; background: #51a7e8; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #2079b0; box-sizing: border-box;">Yahoo!ｼｮｯﾋﾟﾝｸﾞ</a>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; width: 100%;">
+                <a href="${amazonUrl}" target="_blank" rel="nofollow" style="flex: 1 1 200px; display: flex; justify-content: center; align-items: center; background: #ff9900; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #cc7a00; box-sizing: border-box;">Amazon</a>
+                <a href="${rakutenUrl}" target="_blank" rel="nofollow" style="flex: 1 1 200px; display: flex; justify-content: center; align-items: center; background: #bf0000; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #990000; box-sizing: border-box;">楽天市場</a>
+                <a href="${yahooSearchUrl}" target="_blank" rel="nofollow" style="flex: 1 1 200px; display: flex; justify-content: center; align-items: center; background: #51a7e8; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #2079b0; box-sizing: border-box;">Yahoo!ｼｮｯﾋﾟﾝｸﾞ</a>
             </div>
         </div>
-    </div>`;
+
+    </div>
+    `;
 }
 
 // =====================================
 // ▼▼▼ 記事本文生成 ▼▼▼
 // =====================================
 function generateHtmlContent(data, affiliateHtml) {
-    const formattedTime = data.sighting_time ? data.sighting_time.replace('T', ' ').substring(0, 16) : "不明";
+    const formattedTime = data.sighting_time
+        ? data.sighting_time.replace('T', ' ').substring(0, 16)
+        : "不明";
+
     const cleanTweetUrl = data.source_url.split('?')[0].replace('https://x.com', 'https://twitter.com');
     const mapQuery = encodeURIComponent(data.shop_address || data.shop_name);
     const mapEmbedUrl = `https://maps.google.co.jp/maps?output=embed&q=${mapQuery}&t=m&z=15`;
 
     return `
-    <p>${data.prefecture || "エリア不明"}${data.city ? data.city : ""}の「${data.shop_name}」にて、${data.product_name}の目撃情報があります！<br>${data.status_text} お近くの方はチェックしてみる価値がありそうです。</p>
+    <p>
+        ${data.prefecture || "エリア不明"}${data.city ? data.city : ""}の「${data.shop_name}」にて、${data.product_name}の目撃情報があります！<br>
+        ${data.status_text} お近くの方はチェックしてみる価値がありそうです。
+    </p>
+
     <p><strong>📅 目撃・入荷時期</strong> ${formattedTime}</p>
+
     <h3>📦 販売状況・詳細</h3>
     <ul>
         <li><strong>内容:</strong> ${data.product_name}が販売されていたとの報告あり。</li>
         <li><strong>注意:</strong> ${data.confidence_memo}</li>
     </ul>
+
     <h3>🔗 情報ソース（現地ポスト）</h3>
     <figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">
-        <div class="wp-block-embed__wrapper">${cleanTweetUrl}</div>
+        <div class="wp-block-embed__wrapper">
+            ${cleanTweetUrl}
+        </div>
     </figure>
+
     <h3>📍 店舗情報</h3>
     <ul>
         <li><strong>店舗名:</strong> ${data.shop_name}</li>
         <li><strong>住所:</strong> ${data.shop_address}</li>
     </ul>
+
     <div style="width: 100%; height: 350px; margin-top: 20px; margin-bottom: 40px;">
-        <iframe width="100%" height="100%" frameborder="0" style="border:0; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);" src="${mapEmbedUrl}" allowfullscreen></iframe>
+        <iframe 
+            width="100%" 
+            height="100%" 
+            frameborder="0" 
+            style="border:0; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);" 
+            src="${mapEmbedUrl}" 
+            allowfullscreen>
+        </iframe>
     </div>
+
     <p style="font-weight: bold; font-size: 1.1em; margin-bottom: 10px; text-align: center;"> ✨オンラインからも購入できます✨ </p>
-    ${affiliateHtml}`;
+    ${affiliateHtml}
+    `;
 }
+
 
 // =====================================
 // 📝 WordPress 操作クラス
@@ -208,8 +261,14 @@ class WordPressService {
         if (data.product_name) { const tag2 = await this.getOrCreateTag(data.product_name); if (tag2) tags.push(tag2); }
 
         const prefRomaji = PREF_ROMAJI_MAP[data.prefecture] || "unknown";
+
+        // 📍 ここで市町村名を英語化！
+        const englishCityStr = await getEnglishCityName(data.city);
+
         const dateStr = data.sighting_time ? data.sighting_time.substring(0, 10) : "unknown-date";
-        const customSlug = `sight-info-${prefRomaji}-${data.city || "unknown"}-${dateStr}`;
+
+        // 📍 英語化された市町村名を使ったスラッグ
+        const customSlug = `sight-info-${prefRomaji}-${englishCityStr}-${dateStr}`;
 
         const payload = {
             title: `【目撃速報】${data.product_name}｜${data.prefecture || ""}${data.city || ""}（${data.shop_name}）`,
@@ -223,7 +282,7 @@ class WordPressService {
         if (mediaId) payload.featured_media = mediaId;
 
         try {
-            console.log(`🚀 WP投稿中: ${payload.title}`);
+            console.log(`🚀 WP投稿中: ${payload.title} (Slug: ${customSlug})`);
             const response = await axios.post(`${this.apiUrl}/posts`, payload, { headers: { 'Authorization': `Basic ${this.auth}`, 'Content-Type': 'application/json' } });
             return response.data;
         } catch (error) {
