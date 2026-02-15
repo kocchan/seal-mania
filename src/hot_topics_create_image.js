@@ -29,18 +29,18 @@ const imageModel = genAI.getGenerativeModel({
 const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-northeast-1" });
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
-// 地方ごとのメインカラー設定
+// 地方ごとのカラー設定（背景色として淡く使うための基準色）
 const REGION_COLORS = {
-    "北海道・東北": "Light Blue (#4FC3F7)",
-    "関東": "Pop Pink (#FF6699)",
-    "中部": "Vivid Orange (#FF9800)",
-    "近畿": "Light Purple (#BA68C8)",
-    "中国・四国": "Flat Green (#4CAF50)",
-    "九州・沖縄": "Bright Red (#EF5350)",
-    "default": "Pop Pink (#FF6699)"
+    "北海道・東北": "#4FC3F7", // Light Blue
+    "関東": "#FF6699", // Pop Pink
+    "中部": "#FF9800", // Vivid Orange
+    "近畿": "#BA68C8", // Light Purple
+    "中国・四国": "#4CAF50", // Flat Green
+    "九州・沖縄": "#EF5350", // Bright Red
+    "default": "#FF6699" // Default
 };
 
-// 都道府県のリスト（カテゴリから抽出するため）
+// 都道府県のリスト
 const PREFECTURES = [
     "北海道", "青森", "岩手", "宮城", "秋田", "山形", "福島",
     "茨城", "栃木", "群馬", "埼玉", "千葉", "東京", "神奈川",
@@ -61,26 +61,49 @@ function ensureDirectoryExistence(filePath) {
     fs.mkdirSync(filePath, { recursive: true });
 }
 
+// 📍 メタデータ抽出を強化（市名も取得）
 function extractMetadata(article) {
-    let prefecture = "地域不明";
+    let prefecture = "";
+    let cityName = "";
     let region = "default";
-    let product_name = "ボンボンドロップシール"; // 📍 商品名は固定
+    const product_name = "ボンボンドロップシール"; // 商品名は固定
+    let extra_keywords = [];
 
-    // categories（文字列の配列）から都道府県を探す
+    // tagsから情報を抽出
+    if (article.tags && Array.isArray(article.tags)) {
+        for (const tag of article.tags) {
+            if (PREFECTURES.includes(tag)) {
+                if (!prefecture) prefecture = tag;
+            } else if (tag !== '目撃速報') {
+                // 都道府県でも目撃速報でもないタグを、市名の候補とする
+                if (!cityName) {
+                    cityName = tag;
+                } else {
+                    extra_keywords.push(tag);
+                }
+            }
+        }
+    }
+
+    // categoriesから都道府県と地域を特定（tagsになかった場合）
     if (article.categories && Array.isArray(article.categories)) {
         for (const cat of article.categories) {
-            // "愛知" などの県名に完全一致するかチェック
             if (PREFECTURES.includes(cat)) {
-                prefecture = cat;
+                if (!prefecture) prefecture = cat;
             }
-            // "中部" などの地方名が含まれていればカラー用に保存
             if (REGION_COLORS[cat]) {
                 region = cat;
             }
         }
     }
 
-    return { prefecture, region, product_name };
+    // 表示用の地域名を作成
+    let displayLocation = prefecture || "地域不明";
+    if (cityName) {
+        displayLocation = `${prefecture}${cityName}`;
+    }
+
+    return { displayLocation, prefecture, cityName, region, product_name, extra_keywords };
 }
 
 function getThemeColor(region) {
@@ -119,59 +142,66 @@ async function generateAndSaveImage(article) {
 
     console.log(`\n🎨 画像生成開始 [ID: ${draftId}] [Type: ${articleType}]`);
 
+    // 📍 共通のメタデータを抽出
+    const { displayLocation, prefecture, cityName, region, product_name, extra_keywords } = extractMetadata(article);
     let prompt = "";
 
     if (articleType.includes("【A】")) {
-        // 📍 修正：Type A (目撃情報) をB-Fと同じポップなイラスト調に変更
-        const { prefecture, region, product_name } = extractMetadata(article);
+        // 📍 Type A: 目撃情報（リッチでポップ、市名あり）
         const color = getThemeColor(region);
-        console.log(`   ℹ️ 設定: ${prefecture} / ${product_name} / Color: ${color}`);
+        console.log(`   ℹ️ 設定[A]: ${displayLocation} / Color: ${color}`);
 
         prompt = `
-            You are a professional illustrator creating an "Eye-Catching Image" for a pop-culture web article.
-            Create a "Cute, Impactful, Hand-Drawn Style Illustration" that conveys a breaking news report about finding popular stickers.
+            You are a professional illustrator creating a **rich, detailed, pop-style hand-drawn illustration** for a web article.
+            The image conveys a "Breaking News" report about finding a popular item.
 
             **[Design Configuration]**
             * **Aspect Ratio**: 16:9
-            * **Touch**: Hand-drawn style using colored pencils, markers, or crayons. Warm with clear, bold outlines. Texture of paper is slightly visible.
-            * **Main Color Theme**: The overall illustration (background accents, text borders, etc.) MUST heavily feature the color: ${color}.
-            * **Composition**: Center a cute, puffy sticker package or a happy, surprised mascot holding stickers.
+            * **Style**: Hand-drawn with colored pencils/markers. **Not simple.** Full of fun details, patterns, and decorations (sparkles, stars, dots).
+            * **Background**: A **pale, light shade** based on the color ${color}, with a fun pattern like polka dots or stripes.
+            * **Composition**: Center a cute, stylized illustration of the product package ("${product_name}", which is a pack of **stickers**, not candy). Surround it with fun doodles.
 
-            **[Text Content (Must be included)]**
-            Draw the following Japanese text prominently and stylishly as part of the hand-drawn illustration (like a pop-up sign or stamp):
-            1. "目撃速報" (Breaking News) - Make it look like a flashy news stamp.
-            2. "${prefecture}" - Draw it large and clearly.
-            3. "${product_name}" - Draw it playfully.
+            **[Text Elements (Mandatory)]**
+            1.  **"目撃速報" Stamp**:
+                * Text: "目撃速報"
+                * Style: Red rubber stamp, tilted diagonally in the **Top Right corner**.
+            2.  **Location Name**:
+                * Text: "${prefecture}" (Large)
+                * ${cityName ? `Text: "${cityName}" (Smaller, below prefecture)` : ""}
+                * Position: Prominently placed near the center.
+                * Style: Fun, bold, hand-drawn font with an outline.
 
             **[Absolute Rules]**
-            * Remove detailed explanations and complex backgrounds. Use negative space effectively so the text and main subject pop out.
-            * The Japanese text must be drawn exactly as written, with no typos.
-            * Make it look cute, exciting, and appealing to kids and young moms (Yume-Kawaii atmosphere).
+            * Make it look lively, exciting, and full of "Yume-Kawaii" pop energy.
+            * The product is **STICKERS**.
+            * Render Japanese text precisely.
         `;
 
     } else {
-        // Type B-F: その他 (手書き風イラスト指示)
+        // 📍 Type B-F: その他（リッチでポップ、キーワード追加）
         const articleTitle = article.title || "No Title";
         const contentSummary = article.content ? article.content.substring(0, 100) : articleTitle;
-        console.log(`   ℹ️ 設定: 手書き風イラスト / Title: ${articleTitle.substring(0, 20)}...`);
+        const keywordsStr = extra_keywords.length > 0 ? extra_keywords.join(", ") : "なし";
+        console.log(`   ℹ️ 設定[B-F]: Title: ${articleTitle.substring(0, 20)}... / Keywords: ${keywordsStr}`);
 
         prompt = `
-            You are a professional illustrator creating an "Eye-Catching Image" for a web article.
-            Create a "Simple, Impactful, Hand-Drawn Style Illustration" that conveys the conclusion at a glance.
+            You are a professional illustrator creating a **rich, detailed, pop-style hand-drawn illustration** for a web article.
+            Create an impactful visual that conveys the main point at a glance.
 
-            **[Absolute Rules for Simplification]**
-            1. **One Message, One Visual**: Pick ONE shocking "conclusion" or "number" related to the title/content and draw it big in the center.
-            2. **Declutter**: Remove detailed explanations, complex backgrounds, and unnecessary decorations. Use negative space effectively.
-            3. **Minimal Text**: Use very little text (e.g., just the main keywords from the title, or a stamp like "Sold Out!", "New!", "Attention!").
-            4. **Aspect Ratio**: 16:9
+            **[Absolute Rules]**
+            1. **One Main Visual**: Pick ONE main point and draw it big in the center.
+            2. **Rich Details**: Add fun patterns, decorations, and background elements to make it lively. **Not simple.**
+            3. **Minimal Text**: Use very little text (main keywords only).
 
             **[Design Configuration]**
-            * **Touch**: Hand-drawn style using colored pencils or crayons. Warm but with clear outlines. Texture of paper is visible.
-            * **Composition**: Center the main subject.
-            * **Atmosphere**: Cute, "Yume-Kawaii" (dreamy cute), pastel colors.
+            * **Aspect Ratio**: 16:9
+            * **Touch**: Hand-drawn style (colored pencils, crayons). Warm, cute, "Yume-Kawaii" pop atmosphere with pastel colors.
+            * **Background**: Fun patterns (dots, stars) using pastel colors.
 
             **[Article Context]**
+            * **Subject**: "${product_name}" refers to popular **puffy stickers**.
             * **Title**: ${articleTitle}
+            * **Important Keywords**: ${keywordsStr} (Incorporate these visually if possible).
             * **Content Summary**: ${contentSummary}...
         `;
     }
