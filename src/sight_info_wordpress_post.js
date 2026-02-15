@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dbClient, getNowJST } from "./utils.js";
 import { CONFIG } from "./config.js";
@@ -7,7 +9,8 @@ import { fileURLToPath } from 'url';
 
 const APP_CONFIG = {
     tableName: "Articles",
-    waitMs: 2000
+    waitMs: 2000,
+    imageDir: "./data" // 生成された画像の保存先ディレクトリ
 };
 
 // =====================================
@@ -79,7 +82,6 @@ function generatePochippLikeHtml(keyword, productData) {
     const yahooSearchUrl = `https://shopping.yahoo.co.jp/search?p=${encKey}`;
     const mainLinkUrl = productData ? productData.url : yahooSearchUrl;
 
-    // styleタグを使用せず、すべてインラインで記述
     return `
     <div style="border: 2px solid #f2f2f2; border-radius: 4px; padding: 15px; margin: 20px 0 40px; background: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); width: 100%; box-sizing: border-box;">
         
@@ -101,7 +103,6 @@ function generatePochippLikeHtml(keyword, productData) {
                 <a href="${yahooSearchUrl}" target="_blank" rel="nofollow" style="flex: 1 1 200px; display: flex; justify-content: center; align-items: center; background: #51a7e8; color: #fff; font-weight: bold; font-size: 13px; text-decoration: none; border-radius: 4px; height: 42px; box-shadow: 0 2px 0 #2079b0; box-sizing: border-box;">Yahoo!ｼｮｯﾋﾟﾝｸﾞ</a>
             </div>
         </div>
-
     </div>
     `;
 }
@@ -174,6 +175,40 @@ class WordPressService {
         this.auth = Buffer.from(`${WP_USER}:${WP_APP_PASSWORD}`).toString('base64');
     }
 
+    /**
+     * ローカル画像をWordPressにアップロードし、メディアIDを取得する
+     */
+    async uploadImage(tweetId) {
+        if (!tweetId) return null;
+
+        const fileName = `${tweetId}.png`;
+        const filePath = path.join(APP_CONFIG.imageDir, fileName);
+
+        if (!fs.existsSync(filePath)) {
+            console.log(`      ⚠️ 画像が見つかりません。アイキャッチなしで進行します: ${fileName}`);
+            return null;
+        }
+
+        try {
+            console.log(`      🖼️ 画像アップロード中: ${fileName}`);
+            const imageBuffer = fs.readFileSync(filePath);
+
+            const response = await axios.post(`${this.apiUrl}/media`, imageBuffer, {
+                headers: {
+                    'Authorization': `Basic ${this.auth}`,
+                    'Content-Type': 'image/png',
+                    'Content-Disposition': `attachment; filename="${fileName}"`
+                }
+            });
+
+            console.log(`      ✅ 画像アップロード完了 (Media ID: ${response.data.id})`);
+            return response.data.id;
+        } catch (error) {
+            console.error(`      ❌ 画像アップロード失敗:`, error.response?.data?.message || error.message);
+            return null;
+        }
+    }
+
     async getOrCreateTag(tagName) {
         if (!tagName) return null;
         try {
@@ -212,11 +247,15 @@ class WordPressService {
     }
 
     async postArticle(data) {
+        // 1. 画像のアップロード（アイキャッチ設定用）
+        const mediaId = await this.uploadImage(data.source_tweet_id);
+
+        // 2. ポチップ風のアフィリエイト生成
         const productData = await fetchYahooProduct(data.product_name);
         const affiliateHtml = generatePochippLikeHtml(data.product_name, productData);
 
+        // 3. カテゴリーとタグの用意
         const categories = this.getCategoryIds(data.prefecture);
-
         const tags = [];
         const tag1 = await this.getOrCreateTag("目撃速報");
         if (tag1) tags.push(tag1);
@@ -226,6 +265,7 @@ class WordPressService {
             if (tag2) tags.push(tag2);
         }
 
+        // 4. 投稿ペイロードの作成
         const payload = {
             title: `【目撃速報】${data.product_name}｜${data.prefecture || ""}${data.city || ""}（${data.shop_name}）`,
             content: generateHtmlContent(data, affiliateHtml),
@@ -239,6 +279,11 @@ class WordPressService {
                 source_url: data.source_url
             }
         };
+
+        // 📍 メディアIDが取得できていればアイキャッチとして設定
+        if (mediaId) {
+            payload.featured_media = mediaId;
+        }
 
         try {
             console.log(`🚀 WP投稿中: ${payload.title}`);
