@@ -10,8 +10,9 @@
     "wp:sample": "node src/wordpressup.js data/wordpressup_file/sample.json"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.981.0",
-    "@aws-sdk/lib-dynamodb": "^3.981.0",
+    "@aws-sdk/client-dynamodb": "^3.990.0",
+    "@aws-sdk/client-s3": "^3.990.0",
+    "@aws-sdk/lib-dynamodb": "^3.990.0",
     "@google/genai": "^1.41.0",
     "@google/generative-ai": "^0.24.1",
     "aws-sdk": "^2.1693.0",

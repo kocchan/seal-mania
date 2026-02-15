@@ -1,4 +1,22 @@
 export const CONFIG = {
+
+    // AWS関連設定 (S3 / DynamoDB)
+    aws: {
+        s3BucketName: 'my-trend-data-bucket',
+        s3InputPrefix: 'input/',
+        s3ProcessedPrefix: 'processed/',
+        s3InputFiles: ['relatedQueries.csv', 'relatedEntities.csv'],
+        dynamoTableTrend: 'TrendKeywords', // トレンド用テーブル
+        dynamoTableArticles: 'Articles',   // 目撃情報用テーブル (既存の想定)
+    },
+
+    // アプリケーション設定
+    app: {
+        mainSubject: 'ボンボンドロップシール',
+        waitMs: 2000,
+        imageDir: "./data"
+    },
+
     // 目撃情報 X検索クエリ
     queries: [
         "\"ボンボンドロップ\" (\"入荷\" OR \"在庫\" OR \"売ってた\" OR \"買えた\" OR \"ない\" OR \"あった\") -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -譲 -求 -amzn -r10.to -afl.rakuten -\"シル活\"",
