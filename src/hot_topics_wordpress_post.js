@@ -284,14 +284,15 @@ async function enhanceTypeBtoF(draft, extraTweets) {
    （例：【キャラクターシール】お文具さん｜SNSで話題沸騰！交換レート高騰の理由）
 
 【執筆・HTMLコーディングルール】
-* 「この記事を書いた人の顔（個性）が浮かぶか？」と自問してください。
+* ターゲットは「熱烈にシールを集めている小学生の女の子」と「一緒にシールを探すお母さん」です。
+* ニュース記事のような硬い口調（〜である、〜だ、〜にあります、〜してください 等）はやめてください。
+* 「です」「ます」の普通のテンションのブログでの口調にしてください。
 * 誰が書いても同じになる一般論ではなく、マニアックな視点を入れてください。
-* 不自然な接続詞（また、さらに等）の連続を避け、文末のリズム感を整えてください。
 * 固有名詞や数字は正確に記載してください。
 * **各項目の本文(conclusion_html, analysis_html, tips_html, summary_html)は、Markdownを使わずにHTMLタグ（<p>, <strong>, <ul>, <li>など）のみを使って記述してください。** （見出しの<h2>等はプログラム側で付与するので含めないでください）
 
 【構成フォーマット（以下の流れでHTMLを作成）】
-1. 簡単な結論（3秒でわかる！この記事の結論）※ 📍元の結論部分をさらに要約し、**必ず一文（ワンセンテンス）**にまとめてください。リスト(<ul>, <li>)は使用せず、<p>タグを使用してください。
+1. 簡単な結論（3秒でわかる！この記事の結論）※ 元の結論部分を要約し、**必ず一文（ワンセンテンス）**にまとめてください。リスト(<ul>, <li>)は使用せず、<p>タグを使用してください。
 2. ファクトとしての現場の声
 3. 詳細な解説と考察
 4. 攻略方法やTips（なければ省略可）
@@ -311,7 +312,7 @@ ${extraInfo}
     "voices": [
         {
             "quote": "引用する口コミのテキスト（改変しないこと）",
-            "tweet_url": "対象のX(Twitter)URL"
+            "tweet_url": "対象のX(Twitter)URL（Markdownのカッコやテキストは含めず、Xのhttps://...から始まる純粋なURL文字列のみを出力すること）"
         }
     ],
     "analysis_html": "詳細分析と独自の考察の本文（<p>タグ等を使用。見出し不要）",
@@ -329,22 +330,27 @@ ${extraInfo}
         templateHtml += `<h2>💬 みんなの声</h2>\n`;
         (data.voices || []).forEach(v => {
             let cleanUrl = v.tweet_url || "";
+            const urlMatchB = cleanUrl.match(/https?:\/\/(?:twitter\.com|x\.com)\/[^\s)"\]]+/);
+            if (urlMatchB) {
+                cleanUrl = urlMatchB[0];
+            }
+
             if (cleanUrl.includes("?")) cleanUrl = cleanUrl.split("?")[0];
             cleanUrl = cleanUrl.replace(/https:\/\/x\.com/g, "https://twitter.com");
 
-            templateHtml += `<blockquote>\n    <p>${v.quote}</p>\n</blockquote>\n`;
+            // 📍 修正：テキストの引用文(<blockquote>)を削除し、Xの埋め込みのみを表示する
             if (cleanUrl) {
                 templateHtml += `<figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">\n    <div class="wp-block-embed__wrapper">\n        ${cleanUrl}\n    </div>\n</figure>\n\n`;
             }
         });
 
-        templateHtml += `<h2>🤔 くわしい解説</h2>\n${data.analysis_html || ""}\n\n`;
+        templateHtml += `<h2>🤔 なぜこんな状況なの？（くわしい解説）</h2>\n${data.analysis_html || ""}\n\n`;
 
         if (data.tips_html && data.tips_html.trim() !== "") {
-            templateHtml += `<h2>📝 アドバイス</h2>\n${data.tips_html}\n\n`;
+            templateHtml += `<h2>📝 失敗しないためのアドバイス</h2>\n${data.tips_html}\n\n`;
         }
 
-        templateHtml += `<h2>🌟 最後にまとめ</h2>\n${data.summary_html || ""}\n`;
+        templateHtml += `<h2>🌟 まとめ</h2>\n${data.summary_html || ""}\n`;
 
         return {
             html_content: templateHtml,
@@ -515,15 +521,34 @@ async function main() {
 
         const adHtml = generatePochippLikeHtml(finalKeyword, productData);
 
-        // 5. アフィリエイトの挿入
+        // 📍 修正：アフィリエイトの挿入（冒頭、実際の声の直下、一番下）
         let contentBody = `${adHtml}\n\n` + finalHtmlContent;
 
-        const h2Tags = contentBody.match(/<h2/g) || contentBody.match(/## /g);
-        if (h2Tags && h2Tags.length >= 2) {
-            const splitTag = contentBody.includes('<h2') ? '<h2' : '## ';
-            let splitIndex = contentBody.indexOf(splitTag, contentBody.indexOf(splitTag) + 1);
-            contentBody = contentBody.slice(0, splitIndex) + `\n${adHtml}\n\n` + contentBody.slice(splitIndex);
+        if (draft.article_type && draft.article_type.includes("【A】")) {
+            // Aパターンの場合：2つ目の見出し(<h3>)の前に挿入
+            const h3Tags = contentBody.match(/<h3/g);
+            if (h3Tags && h3Tags.length >= 2) {
+                let splitIndex = contentBody.indexOf('<h3'); // 1つ目
+                splitIndex = contentBody.indexOf('<h3', splitIndex + 1); // 2つ目
+                contentBody = contentBody.slice(0, splitIndex) + `${adHtml}\n\n` + contentBody.slice(splitIndex);
+            }
+        } else {
+            // B〜Fパターンの場合：みんなの声の直下（＝「🤔 なぜこんな状況なの？」の前）に挿入
+            const targetHeader = '<h2>🤔 なぜこんな状況なの？（くわしい解説）</h2>';
+            if (contentBody.includes(targetHeader)) {
+                contentBody = contentBody.replace(targetHeader, `${adHtml}\n\n${targetHeader}`);
+            } else {
+                // 万が一見出しが見つからない場合のフォールバック（3つ目の<h2>の前）
+                const h2Tags = contentBody.match(/<h2/g);
+                if (h2Tags && h2Tags.length >= 3) {
+                    let splitIndex = contentBody.indexOf('<h2');
+                    splitIndex = contentBody.indexOf('<h2', splitIndex + 1);
+                    splitIndex = contentBody.indexOf('<h2', splitIndex + 1);
+                    contentBody = contentBody.slice(0, splitIndex) + `${adHtml}\n\n` + contentBody.slice(splitIndex);
+                }
+            }
         }
+
         contentBody += `\n<hr>\n${adHtml}`;
 
         // 6. カテゴリ・タグのID化
