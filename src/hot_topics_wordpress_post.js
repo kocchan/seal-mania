@@ -285,14 +285,15 @@ async function enhanceTypeBtoF(draft, extraTweets) {
 
 【執筆・HTMLコーディングルール】
 * ターゲットは「熱烈にシールを集めている小学生の女の子」と「一緒にシールを探すお母さん」です。
-* ニュース記事のような硬い口調（〜である、〜だ、〜にあります、〜してください 等）はやめてください。
-* 「です」「ます」の普通のテンションのブログでの口調にしてください。
+* 小学生のお子さんでもスラスラ読めるように、難しい漢字や硬い表現（例：鉄則、安易に手を出さず、状況、等）は使わず、分かりやすい言葉に言い換えてください。
+* ニュース記事のような硬い口調はにやめ、お母さんと子供が一緒に読める「です」「ます」という文章にして（抑揚として「ですね！」なども使用して）
+* 記事全体を通して、箇条書きやリスト（<ul>, <li>）を使うべき部分（おすすめポイントや注意点、複数の情報が並ぶ箇所など）は積極的に使って、読みやすく構成してください。
 * 誰が書いても同じになる一般論ではなく、マニアックな視点を入れてください。
 * 固有名詞や数字は正確に記載してください。
-* **各項目の本文(conclusion_html, analysis_html, tips_html, summary_html)は、Markdownを使わずにHTMLタグ（<p>, <strong>, <ul>, <li>など）のみを使って記述してください。** （見出しの<h2>等はプログラム側で付与するので含めないでください）
+* **各項目の本文(conclusion_html, analysis_html, tips_html, summary_html)は、Markdownを使わずにHTMLタグ（<p>, <strong>, <ul>, <li>, <br>など）のみを使って記述してください。** （見出しの<h2>等はプログラム側で付与するので含めないでください）
 
 【構成フォーマット（以下の流れでHTMLを作成）】
-1. 簡単な結論（3秒でわかる！この記事の結論）※ 元の結論部分を要約し、**必ず一文（ワンセンテンス）**にまとめてください。リスト(<ul>, <li>)は使用せず、<p>タグを使用してください。
+1. 簡単な結論（この記事のポイント）※ 元の結論部分を要約し、**1〜2文**にまとめてください。2文になる場合は間に <br> タグを入れて改行してください。硬い言葉を使わず、優しく伝えてください。
 2. ファクトとしての現場の声
 3. 詳細な解説と考察
 4. 攻略方法やTips（なければ省略可）
@@ -308,15 +309,15 @@ ${extraInfo}
 {
     "title": "ルールに従って生成したタイトル",
     "product_name": "記事内で扱っているメインの商品名（例: ボンボンドロップシール）。※店舗名や話題ではなく、アフィリエイト検索用に使用する具体的な「商品名」を記載してください。商品名がない場合は空文字",
-    "conclusion_html": "さらに要約した一文のみの結論（<p>タグを使用。見出し不要）",
+    "conclusion_html": "1〜2文に要約した、親しみやすい言葉の結論（<p>タグを使用。2文の場合は<br>で改行。見出し不要）",
     "voices": [
         {
             "quote": "引用する口コミのテキスト（改変しないこと）",
             "tweet_url": "対象のX(Twitter)URL（Markdownのカッコやテキストは含めず、Xのhttps://...から始まる純粋なURL文字列のみを出力すること）"
         }
     ],
-    "analysis_html": "詳細分析と独自の考察の本文（<p>タグ等を使用。見出し不要）",
-    "tips_html": "読者へのアドバイス・攻略法の本文（<p>タグ等を使用。見出し不要。ない場合は空文字）",
+    "analysis_html": "詳細分析と独自の考察の本文（<p>タグや<ul>タグ等を使用。見出し不要）",
+    "tips_html": "読者へのアドバイス・攻略法の本文（<p>タグや<ul>タグ等を使用。見出し不要。ない場合は空文字）",
     "summary_html": "まとめの本文（<p>タグ等を使用。見出し不要）"
 }
 `;
@@ -338,7 +339,7 @@ ${extraInfo}
             if (cleanUrl.includes("?")) cleanUrl = cleanUrl.split("?")[0];
             cleanUrl = cleanUrl.replace(/https:\/\/x\.com/g, "https://twitter.com");
 
-            // 📍 修正：テキストの引用文(<blockquote>)を削除し、Xの埋め込みのみを表示する
+            // 📍 テキストの引用文(<blockquote>)を削除し、Xの埋め込みのみを表示する
             if (cleanUrl) {
                 templateHtml += `<figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">\n    <div class="wp-block-embed__wrapper">\n        ${cleanUrl}\n    </div>\n</figure>\n\n`;
             }
@@ -521,7 +522,7 @@ async function main() {
 
         const adHtml = generatePochippLikeHtml(finalKeyword, productData);
 
-        // 📍 修正：アフィリエイトの挿入（冒頭、実際の声の直下、一番下）
+        // 5. アフィリエイトの挿入
         let contentBody = `${adHtml}\n\n` + finalHtmlContent;
 
         if (draft.article_type && draft.article_type.includes("【A】")) {
