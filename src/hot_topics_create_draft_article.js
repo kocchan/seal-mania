@@ -56,12 +56,13 @@ async function saveDraftArticle(draftData, targetWord) {
                 tags: draftData.tags,
                 slug: draftData.slug,
                 reference_urls: draftData.reference_urls || [],
+                evaluation_score: draftData.evaluation_score || 0, // 📍 追加：AIの評価スコアを保存
                 is_processed: false,
                 is_rejected: false,
                 created_at: getNowJST()
             }
         }));
-        console.log(`      💾 下書き保存完了: ${draftData.title} (Word: ${targetWord}, Type: ${draftData.article_type})`);
+        console.log(`      💾 下書き保存完了: ${draftData.title} (Word: ${targetWord}, Score: ${draftData.evaluation_score}/10)`);
         return true;
     } catch (e) {
         console.error(`      ❌ 下書き保存エラー:`, e.message);
@@ -186,20 +187,33 @@ Markdownの構文（## や > など）を用いて、以下の流れで執筆す
 ## まとめ
 {ポジティブで読者の背中を押す締めくくり}
 
+# 【追加】記事の評価（SEOとユーザーニーズ）
+作成した記事下書きに対して、GoogleのSEO観点での優位性と、ターゲット読者が欲している情報かどうかを複合的に評価し、1〜10の10段階でスコアをつけてください。
+【評価基準】
+* 10: 絶対に記事にするべき（SEO的にもユーザーニーズ的にも完璧）
+* 6〜9: 記事として価値がある
+* 5: Googleに評価されないだろうな（平凡な内容）
+* 1〜4: これをアップするとメディアの信用を失う（ノイズが多い、情報価値がない）
+
 # 入力データ (対象ワード: ${word})
 ${JSON.stringify(simplifiedTweets, null, 2)}
 
 # 出力フォーマット指示
 必ず以下のJSONスキーマに従って出力してください。Markdownのコードブロック(json)は不要です。直接JSONのみを出力してください。
-{
-  "article_type": "【A】〜【F】のどれに該当するか（例：【A】目撃情報）",
-  "title": "SEOを意識したクリックしたくなる30文字程度のタイトル",
-  "content": "記事本文(Markdown形式。見出しは##を使用。上で指定した構成フォーマットに従う)",
-  "categories": [862, 877, 921], // 必ず上記で提示したワードの配列にすること（ID：数字で記載しないで）
-  "tags": ["関連タグ1", "関連タグ2", "関連タグ3"], // 記事の内容に関連するもの全てを単語で添付してください。ただし、「シール」「抽選」「推し活」「ボンボンドロップ」などの一般的すぎる単語は含めず、その投稿ならではの具体的な名詞のみを含めてください。
-  "slug": "unique-slug-example-in-english",
-  "reference_urls": ["引用・参考にしたXのURL（content内にあるXのURLのみ）の配列"]
-}
+入力データの中に異なるトピックや店舗の情報が複数ある場合は、それぞれ独立した記事として複数作成し、配列形式（[ ]）で出力してください。
+
+[
+  {
+    "article_type": "【A】〜【F】のどれに該当するか（例：【A】目撃情報）",
+    "title": "SEOを意識したクリックしたくなる30文字程度のタイトル",
+    "content": "記事本文(Markdown形式。見出しは##を使用。上で指定した構成フォーマットに従う)",
+  "categories": [都道府県別, 関東, 茨城, キャラクターシール,ディズニー], // 必ず上記で提示したワードの配列にすること（ID：数字で記載しないで）
+    "tags": ["関連タグ1", "関連タグ2", "関連タグ3"], // 記事の内容に関連するもの全てを単語で添付してください。ただし、「シール」「抽選」「推し活」「ボンボンドロップ」などの一般的すぎる単語は含めず、その投稿ならではの具体的な名詞のみを含めてください。
+    "slug": "unique-slug-example-in-english",
+    "reference_urls": ["引用・参考にしたXのURL（content内にあるXのURLのみ）の配列"],
+    "evaluation_score": 10 // 1〜10の評価スコア（数値）
+  }
+]
 `;
 
     try {
@@ -246,12 +260,21 @@ async function main() {
             continue;
         }
 
-        const draftData = await generateDraftArticle(word, targetTweets);
+        const draftDataArray = await generateDraftArticle(word, targetTweets);
 
-        if (draftData) {
-            const isSaved = await saveDraftArticle(draftData, word);
+        if (draftDataArray) {
+            // AIの出力が配列か単一オブジェクトかを判定して配列に統一
+            const drafts = Array.isArray(draftDataArray) ? draftDataArray : [draftDataArray];
 
-            if (isSaved) {
+            console.log(`   📝 ${drafts.length}件の記事下書きが生成されました。`);
+
+            let allSaved = true;
+            for (const draft of drafts) {
+                const isSaved = await saveDraftArticle(draft, word);
+                if (!isSaved) allSaved = false;
+            }
+
+            if (allSaved && drafts.length > 0) {
                 const tweetIds = targetTweets.map(t => t.tweet_id);
                 await markTweetsAsProcessed(tweetIds);
             }
