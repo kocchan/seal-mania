@@ -7,28 +7,24 @@ import { dbClient } from "./utils.js";
 import { CONFIG } from "./config.js";
 import { GoogleGenAI } from "@google/genai";
 
-// =====================================
-// ⚙️ 設定
-// =====================================
+// 設定
 const APP_CONFIG = {
     tableName: "Articles",
     outputDir: "./data",
-    waitMs: 3000 // レートリミット対策の待機時間
+    waitMs: 3000
 };
 
-// 地方（親カテゴリーID）ごとの枠線カラー設定
+// 地方ごとの枠線カラー設定
 const REGION_COLORS = {
-    863: "LightBlue", // 北海道・東北
-    871: "Pink",      // 関東
-    879: "Orange",    // 中部
-    889: "Purple",    // 近畿
-    897: "Green",     // 中国・四国
-    907: "Red",       // 九州・沖縄
+    863: "#4FC3F7", // 北海道・東北 (明るい水色)
+    871: "#FF6699", // 関東 (ポップなピンク)
+    879: "#FF9800", // 中部 (鮮やかなオレンジ)
+    889: "#BA68C8", // 近畿 (少し明るめの紫)
+    897: "#4CAF50", // 中国・四国 (フラットな緑)
+    907: "#EF5350", // 九州・沖縄 (明るい赤)
 };
 
-// =====================================
-// 💾 DynamoDB 関連の操作
-// =====================================
+// DynamoDBの操作
 const DBService = {
     async fetchUnprocessed() {
         try {
@@ -45,9 +41,7 @@ const DBService = {
     }
 };
 
-// =====================================
-// 🎨 画像生成クラス
-// =====================================
+// 画像生成クラス
 class ImageGenerator {
     constructor() {
         if (!process.env.GEMINI_API_KEY) {
@@ -80,19 +74,51 @@ class ImageGenerator {
         const color = this.getThemeColor(article.prefecture);
         const prefCity = `${article.prefecture || ""}${article.city || ""}`;
 
-        // 📍 画像生成プロンプトを日本語＆文字描画重視に最適化（フォント・余白調整版）
+        // 📍 AIの解釈を固定化するため、論理解像度(1920x1080)を基準にした定量的な仕様書形式に変更
         const prompt = `
-            背景は真っ白のシンプルなグラフィックバナーを作成してください。
-            画像全体を囲むように、太い実線の枠線（色: ${color}）を描画してください。
-            枠線の内側に、十分な余白（パディング）を空けて、中央に以下の日本語テキストを配置してください。
-            テキストは、親しみやすく、楽しく、ポップな印象の手書き風丸文字フォントを使用してください。
+            You are a precise graphic design rendering engine. Create an image based strictly on the following specifications.
 
-            ・1行目: 黒色で、中くらいのサイズの「【目撃速報】」
-            ・2行目: 黒色で、1行目より少しだけ大きいサイズの「${prefCity}」
-            ・3行目: 黒色で、中くらいのサイズの「${article.product_name}」
+            [Canvas Specification]
+            - Aspect Ratio: 16:9
+            - Logical Resolution: 1920px (width) x 1080px (height)
+            - Background Color: Solid White (#FFFFFF)
 
-            各行の間にも適度な間隔を空け、全体的に窮屈にならないようにバランスよく配置してください。
-            イラストや影、余計な装飾は一切追加しないでください。
+            [Border Specification]
+            - Style: Solid line
+            - Color: ${color}
+            - Thickness: 40px
+            - Position: Inner border perfectly aligned with the canvas edge.
+
+            [Typography & Layout Specification]
+            - Font Family: "M PLUS Rounded 1c ExtraBold" or "Gen Jyuu Gothic Heavy" (A very thick, rounded, friendly Japanese pop font). No sharp Gothic or Mincho fonts.
+            - Text Alignment: Center-aligned both horizontally and vertically.
+            - Margin/Padding: Maintain at least 150px of white space between the inner edge of the border and the text block.
+
+            [Text Content & Exact Sizing]
+            Render the following three lines of text from top to bottom, perfectly centered on the canvas:
+
+            - Line 1:
+              - Text: "【目撃速報】"
+              - Font Size: 80px
+              - Font Color: Solid Black (#000000)
+            
+            - Spacing between Line 1 and Line 2: 60px
+
+            - Line 2:
+              - Text: "${prefCity}"
+              - Font Size: 180px
+              - Font Color: Solid Black (#000000)
+
+            - Spacing between Line 2 and Line 3: 80px
+
+            - Line 3:
+              - Text: "${article.product_name}"
+              - Font Size: 100px
+              - Font Color: Solid Black (#000000)
+
+            [Strict Constraints]
+            - Do NOT add any illustrations, icons, watermarks, shadows, gradients, or background patterns.
+            - The text MUST be rendered exactly as written in perfect Japanese characters without typos or artifacts.
         `;
 
         try {
