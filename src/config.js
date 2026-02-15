@@ -20,13 +20,15 @@ export const CONFIG = {
     // 目撃情報 X検索クエリ
     queries: [
         "\"ボンボンドロップ\" (\"入荷\" OR \"在庫\" OR \"売ってた\" OR \"買えた\" OR \"ない\" OR \"あった\") -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -譲 -求 -amzn -r10.to -afl.rakuten -\"シル活\"",
-        "\"ぷっくり シール\" (\"入荷\" OR \"在庫\" OR \"売ってた\" OR \"買えた\" OR \"ない\" OR \"あった\") -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -譲 -求 -amzn -r10.to -afl.rakuten -\"シル活\""
+        "\"ぷっくり シール\" (\"入荷\" OR \"在庫\" OR \"売ってた\" OR \"買えた\" OR \"ない\" OR \"あった\") -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -譲 -求 -amzn -r10.to -afl.rakuten -\"シル活\"",
+        "\"うるちゅる\" (\"入荷\" OR \"在庫\" OR \"売ってた\" OR \"買えた\" OR \"ない\" OR \"あった\") -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -譲 -求 -amzn -r10.to -afl.rakuten -\"シル活\""
     ],
 
     trend_queries: [
         "\"ボンボンドロップ\" -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -amzn -r10.to -afl.rakuten ",
         "\"シール\" -PR -AD -Amazon -楽天 -メルカリ -予約 -交換  -amzn -r10.to -afl.rakuten ",
-        "\"ボンドロ\" -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -amzn -r10.to -afl.rakuten "
+        "\"ボンドロ\" -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -amzn -r10.to -afl.rakuten ",
+        "\"うるちゅる\" -PR -AD -Amazon -楽天 -メルカリ -予約 -交換 -amzn -r10.to -afl.rakuten "
     ],
 
     scraping: {
