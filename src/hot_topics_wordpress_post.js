@@ -249,7 +249,8 @@ ${data.status_text} お近くの方はチェックしてみる価値がありそ
 
         return {
             html_content: templateHtml,
-            product_name: data.product_name
+            product_name: data.product_name,
+            title: `【目撃速報】${data.product_name}｜${data.prefecture || ""}${data.city || ""}（${data.shop_name}）`
         };
     } catch (e) {
         console.error("Type A Enhancement Error:", e);
@@ -265,6 +266,22 @@ async function enhanceTypeBtoF(draft, extraTweets) {
     const prompt = `
 あなたはプロのWebライターです。以下の【元の下書き】に対し、【追加の関連ツイート】の情報を加味して、記事の内容に深みを増すように再編集し、指定されたJSONフォーマットでパーツごとに出力してください。
 ※趣旨と違う無関係なノイズ情報は無視してください。
+
+【タイトル生成ルール】
+現在の記事タイプは「${draft.article_type}」です。
+このタイプに応じて、以下の対応するカッコ書きをタイトルの先頭に必ず付けてください。
+* 【B】入荷・抽選情報（今月の新作）の場合：「【今月の新作】」
+* 【C】入荷・抽選情報（抽選・予約情報）の場合：「【抽選・予約情報】」
+* 【D】入荷・抽選情報（オンライン通販）の場合：「【オンライン通販】」
+* 【E】キャラクターシールの場合：「【キャラクターシール】」
+* 【F】店舗攻略情報 / 一般ガイドの場合：「【店舗攻略情報】」 または 「【一般ガイド】」
+
+タイトルの後半は、記事の内容に合わせて以下のいずれかの形式で作成してください。（全体で30〜40文字程度）
+1. 店舗が関係する内容の場合： 商品名｜都道府県市区町村（店舗名）
+   （例：【抽選・予約情報】ボンボンドロップシール｜東京都渋谷区（キデイランド原宿店））
+2. 店舗が関係しない内容の場合： 商品名｜記事の要約（キャッチーなフレーズ）
+   （例：【オンライン通販】ボンボンドロップシール｜Amazonでの争奪戦を勝ち抜くコツ）
+   （例：【キャラクターシール】お文具さん｜SNSで話題沸騰！交換レート高騰の理由）
 
 【執筆・HTMLコーディングルール】
 * 「この記事を書いた人の顔（個性）が浮かぶか？」と自問してください。
@@ -288,6 +305,7 @@ ${extraInfo}
 
 必ず以下のJSONスキーマに従って出力してください。Markdownのコードブロック(json)は不要です。直接JSONのみを出力してください。
 {
+    "title": "ルールに従って生成したタイトル",
     "product_name": "記事内で扱っているメインの商品名（例: ボンボンドロップシール）。※店舗名や話題ではなく、アフィリエイト検索用に使用する具体的な「商品名」を記載してください。商品名がない場合は空文字",
     "conclusion_html": "さらに要約した一文のみの結論（<p>タグを使用。見出し不要）",
     "voices": [
@@ -306,9 +324,9 @@ ${extraInfo}
         const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
         const data = JSON.parse(jsonStr);
 
-        let templateHtml = `<h2>結論</h2>\n${data.conclusion_html || ""}\n\n`;
+        let templateHtml = `<h2>💡 この記事のポイント</h2>\n${data.conclusion_html || ""}\n\n`;
 
-        templateHtml += `<h2>実際の声</h2>\n`;
+        templateHtml += `<h2>💬 みんなの声</h2>\n`;
         (data.voices || []).forEach(v => {
             let cleanUrl = v.tweet_url || "";
             if (cleanUrl.includes("?")) cleanUrl = cleanUrl.split("?")[0];
@@ -320,17 +338,18 @@ ${extraInfo}
             }
         });
 
-        templateHtml += `<h2>なんでこうなっている？</h2>\n${data.analysis_html || ""}\n\n`;
+        templateHtml += `<h2>🤔 くわしい解説</h2>\n${data.analysis_html || ""}\n\n`;
 
         if (data.tips_html && data.tips_html.trim() !== "") {
-            templateHtml += `<h2>アドバイス</h2>\n${data.tips_html}\n\n`;
+            templateHtml += `<h2>📝 アドバイス</h2>\n${data.tips_html}\n\n`;
         }
 
-        templateHtml += `<h2>まとめ</h2>\n${data.summary_html || ""}\n`;
+        templateHtml += `<h2>🌟 最後にまとめ</h2>\n${data.summary_html || ""}\n`;
 
         return {
             html_content: templateHtml,
-            product_name: data.product_name
+            product_name: data.product_name,
+            title: data.title
         };
 
     } catch (e) {
@@ -371,7 +390,6 @@ async function getTermId(taxonomy, termName) {
     } catch (error) { return null; }
 }
 
-// 📍修正：キーワードが店舗名などでおかしくなった場合はボンボンドロップにフォールバック
 async function fetchYahooProduct(keyword) {
     const defaultKeyword = "ボンボンドロップ";
     if (!keyword || keyword.trim() === "") {
@@ -470,6 +488,11 @@ async function main() {
             if (enhancedData) {
                 finalHtmlContent = enhancedData.html_content;
                 searchKeyword = enhancedData.product_name || draft.word;
+                draft.title = enhancedData.title;
+                draft.tags = draft.tags || [];
+                if (!draft.tags.includes("目撃速報")) {
+                    draft.tags.push("目撃速報");
+                }
             } else {
                 finalHtmlContent = draft.content;
             }
@@ -479,6 +502,7 @@ async function main() {
             if (enhancedData) {
                 finalHtmlContent = enhancedData.html_content;
                 searchKeyword = enhancedData.product_name || draft.word;
+                draft.title = enhancedData.title || draft.title;
             } else {
                 finalHtmlContent = draft.content;
             }
@@ -491,7 +515,7 @@ async function main() {
 
         const adHtml = generatePochippLikeHtml(finalKeyword, productData);
 
-        // 📍 修正：アフィリエイトの挿入（余計な文言を全て削除）
+        // 5. アフィリエイトの挿入
         let contentBody = `${adHtml}\n\n` + finalHtmlContent;
 
         const h2Tags = contentBody.match(/<h2/g) || contentBody.match(/## /g);
