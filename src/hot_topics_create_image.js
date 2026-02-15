@@ -17,7 +17,7 @@ const OUTPUT_DIR = path.join(process.cwd(), 'data'); // 画像保存先ディレ
 // Gemini API クライアントの初期化
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 📍 修正：画像生成モデルの指定（エラーの原因となっていたパラメータを削除し、IMAGEを指定）
+// 画像生成モデルの指定（IMAGEモード）
 const imageModel = genAI.getGenerativeModel({
     model: "gemini-3-pro-image-preview",
     generationConfig: {
@@ -25,30 +25,30 @@ const imageModel = genAI.getGenerativeModel({
     }
 });
 
-// DynamoDB クライアントの初期化 (リージョンは環境に合わせて変更してください)
+// DynamoDB クライアントの初期化
 const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-northeast-1" });
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
-// 地方ごとの枠線カラー設定
+// 地方ごとのメインカラー設定
 const REGION_COLORS = {
-    863: "#4FC3F7", // 北海道・東北
-    871: "#FF6699", // 関東
-    879: "#FF9800", // 中部
-    889: "#BA68C8", // 近畿
-    897: "#4CAF50", // 中国・四国
-    907: "#EF5350", // 九州・沖縄
-    default: "#FF6699" // デフォルト（関東）
+    "北海道・東北": "Light Blue (#4FC3F7)",
+    "関東": "Pop Pink (#FF6699)",
+    "中部": "Vivid Orange (#FF9800)",
+    "近畿": "Light Purple (#BA68C8)",
+    "中国・四国": "Flat Green (#4CAF50)",
+    "九州・沖縄": "Bright Red (#EF5350)",
+    "default": "Pop Pink (#FF6699)"
 };
 
-// 都道府県名から地域IDへの簡易マッピング
-const PREF_TO_REGION_ID = {
-    "北海道": 863, "青森県": 863, "岩手県": 863, "宮城県": 863, "秋田県": 863, "山形県": 863, "福島県": 863,
-    "茨城県": 871, "栃木県": 871, "群馬県": 871, "埼玉県": 871, "千葉県": 871, "東京都": 871, "神奈川県": 871,
-    "新潟県": 879, "富山県": 879, "石川県": 879, "福井県": 879, "山梨県": 879, "長野県": 879, "岐阜県": 879, "静岡県": 879, "愛知県": 879,
-    "三重県": 889, "滋賀県": 889, "京都府": 889, "大阪府": 889, "兵庫県": 889, "奈良県": 889, "和歌山県": 889,
-    "鳥取県": 897, "島根県": 897, "岡山県": 897, "広島県": 897, "山口県": 897, "徳島県": 897, "香川県": 897, "愛媛県": 897, "高知県": 897,
-    "福岡県": 907, "佐賀県": 907, "長崎県": 907, "熊本県": 907, "大分県": 907, "宮崎県": 907, "鹿児島県": 907, "沖縄県": 907
-};
+// 都道府県のリスト（カテゴリから抽出するため）
+const PREFECTURES = [
+    "北海道", "青森", "岩手", "宮城", "秋田", "山形", "福島",
+    "茨城", "栃木", "群馬", "埼玉", "千葉", "東京", "神奈川",
+    "新潟", "富山", "石川", "福井", "山梨", "長野", "岐阜", "静岡", "愛知",
+    "三重", "滋賀", "京都", "大阪", "兵庫", "奈良", "和歌山",
+    "鳥取", "島根", "岡山", "広島", "山口", "徳島", "香川", "愛媛", "高知",
+    "福岡", "佐賀", "長崎", "熊本", "大分", "宮崎", "鹿児島", "沖縄"
+];
 
 // ==========================================
 // ヘルパー関数
@@ -62,34 +62,29 @@ function ensureDirectoryExistence(filePath) {
 }
 
 function extractMetadata(article) {
-    let prefecture = "";
-    let city = "";
-    let product_name = "商品名不明";
+    let prefecture = "地域不明";
+    let region = "default";
+    let product_name = "ボンボンドロップシール"; // 📍 商品名は固定
 
-    if (article.tags && Array.isArray(article.tags)) {
-        for (const tag of article.tags) {
-            if (PREF_TO_REGION_ID[tag]) {
-                prefecture = tag;
-                break;
+    // categories（文字列の配列）から都道府県を探す
+    if (article.categories && Array.isArray(article.categories)) {
+        for (const cat of article.categories) {
+            // "愛知" などの県名に完全一致するかチェック
+            if (PREFECTURES.includes(cat)) {
+                prefecture = cat;
             }
-        }
-        const otherTags = article.tags.filter(t => t !== prefecture && t !== '目撃速報');
-        if (otherTags.length > 0) {
-            product_name = otherTags[0];
+            // "中部" などの地方名が含まれていればカラー用に保存
+            if (REGION_COLORS[cat]) {
+                region = cat;
+            }
         }
     }
 
-    if (article.prefecture) prefecture = article.prefecture;
-    if (article.city) city = article.city;
-    if (article.product_name) product_name = article.product_name;
-
-    const prefCity = `${prefecture}${city}`;
-    return { prefecture, prefCity, product_name };
+    return { prefecture, region, product_name };
 }
 
-function getThemeColor(prefecture) {
-    const regionId = PREF_TO_REGION_ID[prefecture];
-    return REGION_COLORS[regionId] || REGION_COLORS.default;
+function getThemeColor(region) {
+    return REGION_COLORS[region] || REGION_COLORS.default;
 }
 
 // ==========================================
@@ -127,56 +122,35 @@ async function generateAndSaveImage(article) {
     let prompt = "";
 
     if (articleType.includes("【A】")) {
-        const { prefecture, prefCity, product_name } = extractMetadata(article);
-        const color = getThemeColor(prefecture);
-        console.log(`   ℹ️ 設定: ${prefCity} / ${product_name} / Color: ${color}`);
+        // 📍 修正：Type A (目撃情報) をB-Fと同じポップなイラスト調に変更
+        const { prefecture, region, product_name } = extractMetadata(article);
+        const color = getThemeColor(region);
+        console.log(`   ℹ️ 設定: ${prefecture} / ${product_name} / Color: ${color}`);
 
         prompt = `
-            You are a precise graphic design rendering engine. Create an image based strictly on the following specifications.
+            You are a professional illustrator creating an "Eye-Catching Image" for a pop-culture web article.
+            Create a "Cute, Impactful, Hand-Drawn Style Illustration" that conveys a breaking news report about finding popular stickers.
 
-            [Canvas Specification]
-            - Aspect Ratio: 16:9
-            - Background Color: Solid White (#FFFFFF)
+            **[Design Configuration]**
+            * **Aspect Ratio**: 16:9
+            * **Touch**: Hand-drawn style using colored pencils, markers, or crayons. Warm with clear, bold outlines. Texture of paper is slightly visible.
+            * **Main Color Theme**: The overall illustration (background accents, text borders, etc.) MUST heavily feature the color: ${color}.
+            * **Composition**: Center a cute, puffy sticker package or a happy, surprised mascot holding stickers.
 
-            [Border Specification]
-            - Style: Solid line
-            - Color: ${color}
-            - Thickness: exactly 80px
-            - Position: Inner border perfectly aligned with the canvas edge.
+            **[Text Content (Must be included)]**
+            Draw the following Japanese text prominently and stylishly as part of the hand-drawn illustration (like a pop-up sign or stamp):
+            1. "目撃速報" (Breaking News) - Make it look like a flashy news stamp.
+            2. "${prefecture}" - Draw it large and clearly.
+            3. "${product_name}" - Draw it playfully.
 
-            [Typography & Layout Specification]
-            - Font Family: "M PLUS Rounded 1c ExtraBold" or "Gen Jyuu Gothic Heavy" (A very thick, rounded, friendly Japanese pop font). No sharp Gothic or Mincho fonts.
-            - Text Alignment: Center-aligned both horizontally and vertically.
-            - Padding (Space between inner border edge and text block): exactly 120px on all sides (top, bottom, left, right).
-
-            [Text Content & Exact Sizing]
-            Render the following three lines of text from top to bottom, forming a single centered text block:
-
-            - Line 1:
-              - Text: "【目撃速報】"
-              - Font Size: exactly 80px
-              - Font Color: Solid Black (#000000)
-
-            - Spacing between Line 1 and Line 2: exactly 60px
-
-            - Line 2:
-              - Text: "${prefCity || '地域不明'}"
-              - Font Size: exactly 160px
-              - Font Color: Solid Black (#000000)
-
-            - Spacing between Line 2 and Line 3: exactly 80px
-
-            - Line 3:
-              - Text: "${product_name}"
-              - Font Size: exactly 80px
-              - Font Color: Solid Black (#000000)
-
-            [Strict Constraints]
-            - Do NOT add any illustrations, icons, watermarks, shadows, gradients, or background patterns.
-            - The text MUST be rendered exactly as written in perfect Japanese characters without typos or artifacts.
+            **[Absolute Rules]**
+            * Remove detailed explanations and complex backgrounds. Use negative space effectively so the text and main subject pop out.
+            * The Japanese text must be drawn exactly as written, with no typos.
+            * Make it look cute, exciting, and appealing to kids and young moms (Yume-Kawaii atmosphere).
         `;
 
     } else {
+        // Type B-F: その他 (手書き風イラスト指示)
         const articleTitle = article.title || "No Title";
         const contentSummary = article.content ? article.content.substring(0, 100) : articleTitle;
         console.log(`   ℹ️ 設定: 手書き風イラスト / Title: ${articleTitle.substring(0, 20)}...`);
