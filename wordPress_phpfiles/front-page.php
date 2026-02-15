@@ -33,13 +33,18 @@ get_header();
 
                     if ($popular_query->have_posts()) :
                         while ($popular_query->have_posts()) : $popular_query->the_post(); ?>
-                            <a href="<?php the_permalink(); ?>" class="article-item slider-item">
-                                <?php if (has_post_thumbnail()) : ?>
-                                    <?php the_post_thumbnail('medium'); ?>
-                                <?php else : ?>
-                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                                <?php endif; ?>
-                            </a>
+                            <div class="slider-item">
+                                <a href="<?php the_permalink(); ?>" class="slider-link">
+                                    <div class="slider-img-wrap">
+                                        <?php if (has_post_thumbnail()) : ?>
+                                            <?php the_post_thumbnail('medium'); ?>
+                                        <?php else : ?>
+                                            <div class="article-placeholder">No Image</div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <h3 class="slider-post-title"><?php the_title(); ?></h3>
+                                </a>
+                            </div>
                         <?php endwhile; wp_reset_postdata();
                     endif; ?>
                 </div>
@@ -174,6 +179,7 @@ get_header();
 </main>
 
 <style>
+/* スライダー全体のコンテナ：画面幅いっぱいに広げる */
 .popular-section-full {
     width: 100vw;
     position: relative;
@@ -183,36 +189,37 @@ get_header();
     overflow: hidden;
 }
 
-.popular-slider-container {
-    width: 100%;
-}
-
+/* スライダー内部：絶対に折り返さない(2段にならない)設定 */
 .popular-post-area {
-    display: flex;
+    display: flex !important;
+    flex-wrap: nowrap !important;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
     -ms-overflow-style: none;
     scrollbar-width: none;
-    /* 左右に20pxの余白を追加 */
-    padding: 0 20px;
+    padding: 0 20px; /* 左右に20pxの余白を維持 */
 }
 
 .popular-post-area::-webkit-scrollbar {
     display: none;
 }
 
+/* 1枚あたりの設定 */
 .slider-item {
-    flex: 0 0 85%; /* 余白分を考慮して少し調整 */
+    flex: 0 0 75%; /* スマホ：1枚が大きく見える */
     margin-right: 15px;
     scroll-snap-align: center;
+    display: flex;
+    flex-direction: column;
 }
 
-.slider-item:last-child {
-    margin-right: 20px; /* 最後のアイテムの右余白 */
+.slider-link {
+    text-decoration: none;
+    display: block;
 }
 
-.slider-item img {
+.slider-img-wrap img {
     width: 100%;
     height: auto;
     border-radius: 12px;
@@ -220,9 +227,37 @@ get_header();
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+/* タイトルのスタイル：2行制限と三点リーダー */
+.slider-post-title {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 10px;
+    color: #333;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2; /* 2行で制限 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: bold;
+    text-align: left;
+    height: 3em; /* 2行分の高さを確保してドットの位置を揃える */
+}
+
+/* PC表示の調整 */
+@media (min-width: 768px) {
+    .popular-post-area {
+        padding: 0 40px;
+    }
+    .slider-item {
+        flex: 0 0 calc(20% - 15px); /* 5枚並ぶサイズ */
+        margin-right: 15px;
+    }
+}
+
+/* ドットインジケーター */
 .slider-dots {
     text-align: center;
-    margin-top: 20px;
+    margin-top: 15px;
     display: flex;
     justify-content: center;
     gap: 8px;
@@ -240,16 +275,6 @@ get_header();
     background: #ff8fb1;
     transform: scale(1.2);
 }
-
-@media (min-width: 768px) {
-    .popular-post-area {
-        padding: 0 40px; /* PCでは少し広めに */
-    }
-    .slider-item {
-        flex: 0 0 19%; /* 5個並ぶサイズ感 */
-        margin-right: 1%;
-    }
-}
 </style>
 
 <script>
@@ -260,6 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (items.length === 0) return;
 
+    // ドットの生成
     items.forEach((_, i) => {
         const dot = document.createElement('div');
         dot.classList.add('dot');
@@ -268,31 +294,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     const dots = dotsContainer.querySelectorAll('.dot');
-    let currentIndex = 0;
 
-    function updateSlider() {
-        const itemWidth = items[0].offsetWidth + parseInt(window.getComputedStyle(items[0]).marginRight);
-        slider.scrollTo({
-            left: itemWidth * currentIndex,
-            behavior: 'smooth'
-        });
-
-        dots.forEach(d => d.classList.remove('active'));
-        dots[currentIndex].classList.add('active');
-    }
-
-    setInterval(() => {
-        currentIndex = (currentIndex + 1) % items.length;
-        updateSlider();
-    }, 2000);
-
-    // 手動スクロール時のドット同期（おまけ）
+    // 手動スクロール時のドット同期のみ実行（自動スクロールを削除）
     slider.addEventListener('scroll', () => {
-        const index = Math.round(slider.scrollLeft / items[0].offsetWidth);
+        const index = Math.round((slider.scrollLeft) / (items[0].offsetWidth + 15));
         if(index < dots.length) {
             dots.forEach(d => d.classList.remove('active'));
             dots[index].classList.add('active');
-            currentIndex = index;
         }
     });
 });
