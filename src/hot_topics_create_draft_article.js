@@ -51,8 +51,8 @@ async function saveDraftArticle(draftData, targetWord) {
                 word: targetWord,
                 title: draftData.title,
                 content: draftData.content,
-                article_type: draftData.article_type, // 📍 追加：記事の分類
-                categories: draftData.categories,     // 📍 カテゴリIDの配列として保存される
+                article_type: draftData.article_type,
+                categories: draftData.categories,
                 tags: draftData.tags,
                 slug: draftData.slug,
                 reference_urls: draftData.reference_urls || [],
@@ -98,7 +98,6 @@ async function generateDraftArticle(word, tweets) {
         time: t.post_time_str
     }));
 
-    // ご指定いただいたプロンプトをベースに、カテゴリ設定とURL記載の指示を「付け足して」います
     const prompt = `
 # 役割
 あなたは「シールマニア」の編集長であり、最新のSEO（E-E-A-T、情報密度）に精通したプロのWebライターです。提供されたX（旧Twitter）の投稿データ（JSON）を分析し、ユーザーの検索意図を満たす高品質なブログ記事を作成してください。
@@ -196,8 +195,8 @@ ${JSON.stringify(simplifiedTweets, null, 2)}
   "article_type": "【A】〜【F】のどれに該当するか（例：【A】目撃情報）",
   "title": "SEOを意識したクリックしたくなる30文字程度のタイトル",
   "content": "記事本文(Markdown形式。見出しは##を使用。上で指定した構成フォーマットに従う)",
-  "categories": [862, 877, 921], // 必ず上記で提示したID（数値）の配列にすること
-  "tags": ["関連タグ1", "関連タグ2", "関連タグ3"（記事の内容に関連するもの全てを単語で添付して）],
+  "categories": [862, 877, 921], // 必ず上記で提示したワードの配列にすること（ID：数字で記載しないで）
+  "tags": ["関連タグ1", "関連タグ2", "関連タグ3"], // 記事の内容に関連するもの全てを単語で添付してください。ただし、「シール」「抽選」「推し活」「ボンボンドロップ」などの一般的すぎる単語は含めず、その投稿ならではの具体的な名詞のみを含めてください。
   "slug": "unique-slug-example-in-english",
   "reference_urls": ["引用・参考にしたXのURL（content内にあるXのURLのみ）の配列"]
 }
