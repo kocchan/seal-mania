@@ -135,12 +135,10 @@ ${draft.content}
         const checkJsonStr = checkRes.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
         const checkData = JSON.parse(checkJsonStr);
 
-        // 1発でOKの場合
         if (checkData.is_approved) {
             return { is_approved: true, content: draft.content };
         }
 
-        // NGの場合、修正・加筆を試みる
         console.log(`   ⚠️ 検閲NG（理由: ${checkData.reason}）。記事の修正を試みます...`);
         const fixPrompt = `
 あなたはプロのWebライターです。
@@ -170,9 +168,9 @@ ${draft.content}
 
         if (fixData.can_fix) {
             console.log(`   🛠️ 修正成功: ${fixData.reason}`);
-            return { is_approved: true, content: fixData.fixed_content }; // 修正できた場合はtrueと新しい本文を返す
+            return { is_approved: true, content: fixData.fixed_content };
         } else {
-            return { is_approved: false, reason: fixData.reason }; // 修正不可能な場合のみ最終NG
+            return { is_approved: false, reason: fixData.reason };
         }
 
     } catch (e) {
@@ -199,7 +197,7 @@ ${draft.content}
     "city": "市区町村名",
     "shop_name": "店舗名（例: バースデイ長浜店）",
     "shop_address": "店舗の実際の住所（ネットで推測して記載）",
-    "product_name": "商品名（例: ボンボンドロップシール）",
+    "product_name": "商品名（例: ボンボンドロップシール）。※アフィリエイト検索用に使用するため、店舗名ではなく必ずシール等の商品名を記載してください。",
     "status_text": "販売状況の簡潔な説明（例: レジ横で行列ができています！）",
     "confidence_memo": "読者への注意点（例: 在庫切れの可能性が高いので朝イチ推奨）",
     "tweet_url": "下書き内にある参考XのURLを1つ抽出"
@@ -210,17 +208,15 @@ ${draft.content}
         const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
         const data = JSON.parse(jsonStr);
 
-        // URLをクリーンにする
         let cleanTweetUrl = data.tweet_url || "";
         if (cleanTweetUrl.includes("?")) {
             cleanTweetUrl = cleanTweetUrl.split("?")[0];
         }
-        cleanTweetUrl = cleanTweetUrl.replace("[https://x.com](https://x.com)", "[https://twitter.com](https://twitter.com)");
+        cleanTweetUrl = cleanTweetUrl.replace(/https:\/\/x\.com/g, "[https://twitter.com](https://twitter.com)");
 
         const mapQuery = encodeURIComponent(data.shop_address || data.shop_name);
         const mapEmbedUrl = `https://maps.google.co.jp/maps?output=embed&q=${mapQuery}&t=m&z=15`;
 
-        // WordPressの標準的なTwitter埋め込みブロック構造にする
         const templateHtml = `
 <p>${data.prefecture || "エリア不明"}${data.city || ""}の「${data.shop_name}」にて、${data.product_name}の目撃情報があります！<br>
 ${data.status_text} お近くの方はチェックしてみる価値がありそうです。</p>
@@ -267,27 +263,21 @@ async function enhanceTypeBtoF(draft, extraTweets) {
     const extraInfo = extraTweets.map(t => t.text).join('\n');
 
     const prompt = `
-あなたはプロのWebライターです。以下の【元の下書き】に対し、【追加の関連ツイート】の情報を加味して、記事の内容に深みを増すように再編集し、WordPressにそのまま投稿できるHTML形式で出力してください。
+あなたはプロのWebライターです。以下の【元の下書き】に対し、【追加の関連ツイート】の情報を加味して、記事の内容に深みを増すように再編集し、指定されたJSONフォーマットでパーツごとに出力してください。
 ※趣旨と違う無関係なノイズ情報は無視してください。
 
 【執筆・HTMLコーディングルール】
 * 「この記事を書いた人の顔（個性）が浮かぶか？」と自問してください。
 * 誰が書いても同じになる一般論ではなく、マニアックな視点を入れてください。
 * 不自然な接続詞（また、さらに等）の連続を避け、文末のリズム感を整えてください。
-* 固有名詞や数字は正確に。
-* **出力はMarkdownではなく、すべてHTMLタグ（<h2>, <h3>, <p>, <ul>, <li>, <blockquote>など）を使用してください。**
-* X（Twitter）のURLを記載する際は、単なるテキストリンク（<a href="...">）ではなく、必ず以下のWordPress埋め込み用HTMLフォーマットを使用してください。（URLの ? 以降のパラメータは削除したクリーンなURLを入れてください）
-  <figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">
-      <div class="wp-block-embed__wrapper">
-          [https://twitter.com/xxxx/status/123456789](https://twitter.com/xxxx/status/123456789)
-      </div>
-  </figure>
+* 固有名詞や数字は正確に記載してください。
+* **各項目の本文(conclusion_html, analysis_html, tips_html, summary_html)は、Markdownを使わずにHTMLタグ（<p>, <strong>, <ul>, <li>など）のみを使って記述してください。** （見出しの<h2>等はプログラム側で付与するので含めないでください）
 
 【構成フォーマット（以下の流れでHTMLを作成）】
-1. 簡単な結論を一文で※ <ul> と <li> を使用
-2. 現場の声（<blockquote> と 上記のX埋め込みフォーマットを使用）
-3. 詳細な解説と考察（<h2> と <p> を使用）
-4. 攻略方法やTipsや補足情報（なければ省略可）
+1. 簡単な結論（3秒でわかる！この記事の結論）※ 📍元の結論部分をさらに要約し、**必ず一文（ワンセンテンス）**にまとめてください。リスト(<ul>, <li>)は使用せず、<p>タグを使用してください。
+2. ファクトとしての現場の声
+3. 詳細な解説と考察
+4. 攻略方法やTips（なければ省略可）
 5. まとめ（締めの言葉）
 
 【元の下書き】
@@ -298,17 +288,54 @@ ${extraInfo}
 
 必ず以下のJSONスキーマに従って出力してください。Markdownのコードブロック(json)は不要です。直接JSONのみを出力してください。
 {
-    "html_content": "完成したHTML形式の記事本文"
+    "product_name": "記事内で扱っているメインの商品名（例: ボンボンドロップシール）。※店舗名や話題ではなく、アフィリエイト検索用に使用する具体的な「商品名」を記載してください。商品名がない場合は空文字",
+    "conclusion_html": "さらに要約した一文のみの結論（<p>タグを使用。見出し不要）",
+    "voices": [
+        {
+            "quote": "引用する口コミのテキスト（改変しないこと）",
+            "tweet_url": "対象のX(Twitter)URL"
+        }
+    ],
+    "analysis_html": "詳細分析と独自の考察の本文（<p>タグ等を使用。見出し不要）",
+    "tips_html": "読者へのアドバイス・攻略法の本文（<p>タグ等を使用。見出し不要。ない場合は空文字）",
+    "summary_html": "まとめの本文（<p>タグ等を使用。見出し不要）"
 }
 `;
     try {
         const res = await jsonModel.generateContent(prompt);
         const jsonStr = res.response.text().replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
         const data = JSON.parse(jsonStr);
-        return data.html_content;
+
+        let templateHtml = `<h2>結論</h2>\n${data.conclusion_html || ""}\n\n`;
+
+        templateHtml += `<h2>実際の声</h2>\n`;
+        (data.voices || []).forEach(v => {
+            let cleanUrl = v.tweet_url || "";
+            if (cleanUrl.includes("?")) cleanUrl = cleanUrl.split("?")[0];
+            cleanUrl = cleanUrl.replace(/https:\/\/x\.com/g, "https://twitter.com");
+
+            templateHtml += `<blockquote>\n    <p>${v.quote}</p>\n</blockquote>\n`;
+            if (cleanUrl) {
+                templateHtml += `<figure class="wp-block-embed is-type-rich is-provider-twitter wp-block-embed-twitter">\n    <div class="wp-block-embed__wrapper">\n        ${cleanUrl}\n    </div>\n</figure>\n\n`;
+            }
+        });
+
+        templateHtml += `<h2>なんでこうなっている？</h2>\n${data.analysis_html || ""}\n\n`;
+
+        if (data.tips_html && data.tips_html.trim() !== "") {
+            templateHtml += `<h2>アドバイス</h2>\n${data.tips_html}\n\n`;
+        }
+
+        templateHtml += `<h2>まとめ</h2>\n${data.summary_html || ""}\n`;
+
+        return {
+            html_content: templateHtml,
+            product_name: data.product_name
+        };
+
     } catch (e) {
         console.error("Type B-F Enhancement Error:", e);
-        return draft.content;
+        return null;
     }
 }
 
@@ -344,23 +371,37 @@ async function getTermId(taxonomy, termName) {
     } catch (error) { return null; }
 }
 
+// 📍修正：キーワードが店舗名などでおかしくなった場合はボンボンドロップにフォールバック
 async function fetchYahooProduct(keyword) {
-    if (!keyword) return null;
-    try {
-        const response = await axios.get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', {
-            params: { appid: YAHOO_CLIENT_ID, query: keyword, results: 1, sort: '-score', image_size: 300 }
-        });
-        const hits = response.data.hits;
-        if (hits && hits.length > 0) {
-            const item = hits[0];
-            return { name: item.name, image: item.image?.medium || '', price: item.price, url: item.url };
-        }
-        return null;
-    } catch (e) { return null; }
+    const defaultKeyword = "ボンボンドロップ";
+    if (!keyword || keyword.trim() === "") {
+        keyword = defaultKeyword;
+    }
+
+    const executeSearch = async (query) => {
+        try {
+            const response = await axios.get('https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch', {
+                params: { appid: YAHOO_CLIENT_ID, query: query, results: 1, sort: '-score', image_size: 300 }
+            });
+            const hits = response.data.hits;
+            if (hits && hits.length > 0) {
+                const item = hits[0];
+                return { name: item.name, image: item.image?.medium || '', price: item.price, url: item.url };
+            }
+            return null;
+        } catch (e) { return null; }
+    };
+
+    let result = await executeSearch(keyword);
+    if (result) return { data: result, keyword: keyword };
+
+    console.log(`      ⚠️ Yahoo検索ヒットなし: "${keyword}" -> 最終手段: "${defaultKeyword}"で検索`);
+    result = await executeSearch(defaultKeyword);
+    return { data: result, keyword: defaultKeyword };
 }
 
 function generatePochippLikeHtml(keyword, productData) {
-    if (!keyword) return '';
+    if (!keyword) keyword = 'ボンボンドロップ';
     const itemName = productData ? productData.name : `${keyword}`;
     const itemImage = (productData && productData.image) ? productData.image : 'https://placehold.jp/300x300.png?text=No%20Image';
     const itemPrice = productData ? `¥${productData.price.toLocaleString()}〜` : '';
@@ -417,7 +458,6 @@ async function main() {
             await updateDraftStatus(draft.draft_id, true, true);
             continue;
         }
-        // 検閲（修正）をクリアした本文で上書き
         draft.content = censorResult.content;
         console.log(`   ✅ 検閲クリア！`);
 
@@ -435,23 +475,32 @@ async function main() {
             }
         } else {
             const extraTweets = await fetchRawTweetsByWord(draft.word);
-            finalHtmlContent = await enhanceTypeBtoF(draft, extraTweets);
+            const enhancedData = await enhanceTypeBtoF(draft, extraTweets);
+            if (enhancedData) {
+                finalHtmlContent = enhancedData.html_content;
+                searchKeyword = enhancedData.product_name || draft.word;
+            } else {
+                finalHtmlContent = draft.content;
+            }
         }
 
         // 4. アフィリエイト準備
-        const productData = await fetchYahooProduct(searchKeyword);
-        const adHtml = generatePochippLikeHtml(searchKeyword, productData);
+        const yahooResult = await fetchYahooProduct(searchKeyword);
+        const productData = yahooResult.data;
+        const finalKeyword = yahooResult.keyword;
 
-        // 5. アフィリエイトの挿入（上・中・下）
-        let contentBody = `<p>👇 <strong>この記事で紹介しているアイテム</strong></p>${adHtml}` + finalHtmlContent;
+        const adHtml = generatePochippLikeHtml(finalKeyword, productData);
+
+        // 📍 修正：アフィリエイトの挿入（余計な文言を全て削除）
+        let contentBody = `${adHtml}\n\n` + finalHtmlContent;
 
         const h2Tags = contentBody.match(/<h2/g) || contentBody.match(/## /g);
         if (h2Tags && h2Tags.length >= 2) {
             const splitTag = contentBody.includes('<h2') ? '<h2' : '## ';
             let splitIndex = contentBody.indexOf(splitTag, contentBody.indexOf(splitTag) + 1);
-            contentBody = contentBody.slice(0, splitIndex) + `\n<p>👇 <strong>気になったら在庫をチェック！</strong></p>\n${adHtml}\n` + contentBody.slice(splitIndex);
+            contentBody = contentBody.slice(0, splitIndex) + `\n${adHtml}\n\n` + contentBody.slice(splitIndex);
         }
-        contentBody += `\n<hr>\n<p>👇 <strong>売り切れる前にチェック！</strong></p>\n${adHtml}`;
+        contentBody += `\n<hr>\n${adHtml}`;
 
         // 6. カテゴリ・タグのID化
         const categoryIds = [];
