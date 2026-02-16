@@ -75,7 +75,7 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 4
+                    'posts_per_page' => 4 /* 5から4に変更 */
                 );
                 $query = new WP_Query($args);
 
@@ -83,7 +83,7 @@ get_header();
             ?>
             <div class="region-block">
                 <h3 class="sub-title-pink"><?php echo esc_html($region_name); ?></h3>
-                <div class="article-grid-5">
+                <div class="article-grid-4">
                     <?php while ($query->have_posts()) : $query->the_post(); ?>
                         <div class="grid-item-wrap">
                             <a href="<?php the_permalink(); ?>" class="img-only-link">
@@ -130,7 +130,7 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 5
+                    'posts_per_page' => 4 /* 5から4に変更 */
                 );
                 $query = new WP_Query($args);
 
@@ -138,7 +138,7 @@ get_header();
             ?>
             <div class="region-block">
                 <h3 class="sub-title-pink"><?php echo esc_html($store_name); ?></h3>
-                <div class="article-grid-5">
+                <div class="article-grid-4">
                     <?php while ($query->have_posts()) : $query->the_post(); ?>
                         <div class="grid-item-wrap">
                             <a href="<?php the_permalink(); ?>" class="img-only-link">
@@ -184,7 +184,7 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 5
+                    'posts_per_page' => 4 /* 5から4に変更 */
                 );
                 $query = new WP_Query($args);
 
@@ -192,7 +192,7 @@ get_header();
             ?>
             <div class="region-block">
                 <h3 class="sub-title-pink"><?php echo esc_html($char_name); ?></h3>
-                <div class="article-grid-5">
+                <div class="article-grid-4">
                     <?php while ($query->have_posts()) : $query->the_post(); ?>
                         <div class="grid-item-wrap">
                             <a href="<?php the_permalink(); ?>" class="img-only-link">
@@ -219,6 +219,7 @@ get_header();
             endforeach; 
             ?>
         </section>
+
         <section class="content-section news-section">
             <h2 class="section-title-blue">入荷/抽選情報</h2>
             <?php
@@ -234,7 +235,7 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 5
+                    'posts_per_page' => 4 /* 5から4に変更 */
                 );
                 $query = new WP_Query($args);
 
@@ -242,7 +243,7 @@ get_header();
             ?>
             <div class="region-block">
                 <h3 class="sub-title-pink"><?php echo esc_html($news_name); ?></h3>
-                <div class="article-grid-5">
+                <div class="article-grid-4">
                     <?php while ($query->have_posts()) : $query->the_post(); ?>
                         <div class="grid-item-wrap">
                             <a href="<?php the_permalink(); ?>" class="img-only-link">
@@ -269,11 +270,13 @@ get_header();
             endforeach; 
             ?>
         </section>
+
         <section class="content-section guide-section">
             <h2 class="section-title-blue">豆知識</h2>
             <div class="store-grid-wrapper">
                 <?php 
-                $guide_query = new WP_Query(array('category_name' => 'guide', 'posts_per_page' => 15));
+                /* 豆知識も取得件数を 15 から 4 に変更 */
+                $guide_query = new WP_Query(array('category_name' => 'guide', 'posts_per_page' => 4));
                 if ($guide_query->have_posts()) :
                     while ($guide_query->have_posts()) : $guide_query->the_post(); ?>
                         <div class="grid-item-wrap">
@@ -300,23 +303,37 @@ get_header();
 </main>
 
 <style>
-/* ▼ 追加：キービジュアルとスライダーの間の余白を極限まで狭くする ▼ */
-.main-visual-area {
-    margin-bottom: 20px !important; /* WordPress側の大きな余白を強制キャンセル */
+/* ▼ 追加：PCで4列、スマホで2列にして記事を大きく見せる（親テーマの5列設定を上書き） ▼ */
+.article-grid-4,
+.store-grid-wrapper {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important; /* 横に4つ並べる */
+    gap: 15px !important;
 }
 
-.content-container {
-    padding-top: 20px !important; /* コンテナ全体の上余白を少しだけ残す */
+@media screen and (max-width: 768px) {
+    .article-grid-4,
+    .store-grid-wrapper {
+        grid-template-columns: repeat(2, 1fr) !important; /* スマホでは2列×2段で大きく見せる */
+        gap: 10px !important;
+    }
 }
 /* ▲ 追加ここまで ▲ */
 
-/* ▼ 変更：分離したリンクとタイトルの確実なスタイル（テーマCSSのリセット含む） ▼ */
+/* キービジュアルとスライダーの間の余白を極限まで狭くする */
+.main-visual-area {
+    margin-bottom: 20px !important; 
+}
 
-/* サムネイル画像用のリンク（比率を維持） */
+.content-container {
+    padding-top: 20px !important; 
+}
+
+/* 分離したリンクとタイトルの確実なスタイル（テーマCSSのリセット含む） */
 .img-only-link {
     display: block !important;
     text-decoration: none !important;
-    aspect-ratio: 16 / 9 !important; /* 画像部分は16:9を維持 */
+    aspect-ratio: 16 / 9 !important; 
     overflow: hidden !important;
     border-radius: 8px !important;
     background-color: #f5f5f5 !important;
@@ -328,32 +345,28 @@ get_header();
     object-fit: cover !important;
 }
 
-/* タイトル用のリンク（比率や背景色を無効化） */
 .title-only-link {
     display: block !important;
     text-decoration: none !important;
     margin-top: 8px !important;
-    aspect-ratio: auto !important; /* カスタマイズCSSの16:9を上書き */
-    background-color: transparent !important; /* カスタマイズCSSのグレーを上書き */
+    aspect-ratio: auto !important; 
+    background-color: transparent !important; 
     padding: 0 !important;
     height: auto !important;
 }
 
-/* タイトルテキスト本体 */
 .safe-post-title {
     font-size: 13px !important;
     color: #333 !important;
     line-height: 1.5 !important;
     font-weight: bold !important;
     text-align: left !important;
-    /* 2行制限 */
     display: -webkit-box !important;
     -webkit-box-orient: vertical !important;
     -webkit-line-clamp: 2 !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     height: 3em !important; 
-    /* テーマ側のあらゆる非表示設定を無効化 */
     visibility: visible !important;
     opacity: 1 !important;
     text-indent: 0 !important;
@@ -362,21 +375,18 @@ get_header();
     background: transparent !important;
 }
 
-/* グリッドレイアウト用のラッパー */
 .grid-item-wrap {
     display: flex;
     flex-direction: column;
 }
-/* ▲ 変更ここまで ▲ */
 
-
-/* ▼ 変更：スライダー全体のコンテナ上余白もゼロに ▼ */
+/* スライダー全体のコンテナ上余白もゼロに */
 .popular-section-full {
     width: 100vw;
     position: relative;
     left: 50%;
     transform: translateX(-50%);
-    margin: 0 0 40px !important; /* 上余白の20pxを0に変更 */
+    margin: 0 0 40px !important; 
     overflow: hidden;
 }
 
@@ -389,7 +399,7 @@ get_header();
     scroll-behavior: smooth;
     -ms-overflow-style: none;
     scrollbar-width: none;
-    padding: 0 20px; /* 左右に20pxの余白を維持 */
+    padding: 0 20px; 
 }
 
 .popular-post-area::-webkit-scrollbar {
@@ -419,7 +429,7 @@ get_header();
         padding: 0 40px;
     }
     .slider-item {
-        flex: 0 0 calc(20% - 15px); /* 5枚並ぶサイズ */
+        flex: 0 0 calc(20% - 15px); /* トップのスライダーは5枚並ぶサイズを維持 */
         margin-right: 15px;
     }
 }
