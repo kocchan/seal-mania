@@ -112,30 +112,57 @@ get_header();
 
         <section class="content-section store-section">
             <h2 class="section-title-blue">店舗から探す</h2>
-            <div class="store-grid-wrapper">
-                <?php 
-                $store_query = new WP_Query(array('category_name' => 'store', 'posts_per_page' => 15));
-                if ($store_query->have_posts()) :
-                    while ($store_query->have_posts()) : $store_query->the_post(); ?>
-                        <div class="grid-item-wrap">
-                            <a href="<?php the_permalink(); ?>" class="img-only-link">
-                                <?php if (has_post_thumbnail()) : ?>
-                                    <?php the_post_thumbnail('medium'); ?>
-                                <?php else : ?>
-                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                                <?php endif; ?>
-                            </a>
-                            <a href="<?php the_permalink(); ?>" class="title-only-link">
-                                <div class="safe-post-title">
-                                    <?php echo esc_html(get_the_title()); ?>
-                                </div>
-                            </a>
-                        </div>
-                    <?php endwhile; wp_reset_postdata();
-                endif; ?>
-            </div>
-        </section>
+            <?php
+            $stores = [
+                'ドンキ' => 'donki',
+                'LOFT' => 'loft',
+                'ハンズ' => 'hands',
+                'コンビニ' => 'convini',
+                'ヴィレッジヴァンガード' => 'village-vanguard',
+                'TSUTAYA' => 'tsutaya',
+                'その他' => 'other-store',
+            ];
 
+            foreach ($stores as $store_name => $slug) :
+                $cat = get_category_by_slug($slug);
+                $store_link = $cat ? get_category_link($cat->term_id) : '#';
+                
+                $args = array(
+                    'category_name'  => $slug,
+                    'posts_per_page' => 5
+                );
+                $query = new WP_Query($args);
+            ?>
+            <div class="region-block">
+                <h3 class="sub-title-pink"><?php echo esc_html($store_name); ?></h3>
+                <?php if ($query->have_posts()) : ?>
+                    <div class="article-grid-5">
+                        <?php while ($query->have_posts()) : $query->the_post(); ?>
+                            <div class="grid-item-wrap">
+                                <a href="<?php the_permalink(); ?>" class="img-only-link">
+                                    <?php if (has_post_thumbnail()) : ?>
+                                        <?php the_post_thumbnail('medium'); ?>
+                                    <?php else : ?>
+                                        <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
+                                    <?php endif; ?>
+                                </a>
+                                <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                    <div class="safe-post-title">
+                                        <?php echo esc_html(get_the_title()); ?>
+                                    </div>
+                                </a>
+                            </div>
+                        <?php endwhile; wp_reset_postdata(); ?>
+                    </div>
+                    <?php if ($cat) : ?>
+                        <div class="more-link-wrap"><a href="<?php echo esc_url($store_link); ?>" class="more-link">もっと見る＞</a></div>
+                    <?php endif; ?>
+                <?php else : ?>
+                    <div class="no-posts-message">記事準備中です＞＜<br>更新されるまでお待ちください</div>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
+        </section>
         <section class="content-section character-section">
             <h2 class="section-title-blue">キャラクターから探す</h2>
             <div class="store-grid-wrapper">
