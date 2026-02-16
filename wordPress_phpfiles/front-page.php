@@ -9,7 +9,7 @@ get_header();
     
     <div class="main-visual-area">
         <img src="http://www.seal-search.com/wp-content/uploads/2026/02/Gemini_Generated_Image_sw3lrxsw3lrxsw3l.png" alt="BONBON DROP" class="main-visual-img pc-only">
-        <img src="http://www.seal-search.com/wp-content/uploads/2026/02/Gemini_Generated_Image_hn23y9hn23y9hn23-2.png" alt="BONBON DROP" class="main-visual-img sp-only">
+        <img src="http://www.seal-search.com/wp-content/uploads/2026/02/Gemini_Generated_Image_gu1sshgu1sshgu1s.png" alt="BONBON DROP" class="main-visual-img sp-only">
     </div>
 
     <div class="content-container">
@@ -219,6 +219,16 @@ get_header();
 </main>
 
 <style>
+/* ▼ 追加：キービジュアルとスライダーの間の余白を極限まで狭くする ▼ */
+.main-visual-area {
+    margin-bottom: 20px !important; /* WordPress側の大きな余白を強制キャンセル */
+}
+
+.content-container {
+    padding-top: 20px !important; /* コンテナ全体の上余白を少しだけ残す */
+}
+/* ▲ 追加ここまで ▲ */
+
 /* ▼ 変更：分離したリンクとタイトルの確実なスタイル（テーマCSSのリセット含む） ▼ */
 
 /* サムネイル画像用のリンク（比率を維持） */
@@ -279,13 +289,13 @@ get_header();
 /* ▲ 変更ここまで ▲ */
 
 
-/* スライダー全体のコンテナ：画面幅いっぱいに広げる */
+/* ▼ 変更：スライダー全体のコンテナ上余白もゼロに ▼ */
 .popular-section-full {
     width: 100vw;
     position: relative;
     left: 50%;
     transform: translateX(-50%);
-    margin: 20px 0 40px;
+    margin: 0 0 40px !important; /* 上余白の20pxを0に変更 */
     overflow: hidden;
 }
 
