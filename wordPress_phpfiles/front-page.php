@@ -57,6 +57,22 @@ get_header();
             </div>
         </section>
 
+        <div style="border: 2px solid #f2f2f2; border-radius: 4px; padding: 15px; margin: 40px 0; background: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; width: 100%; box-sizing: border-box;">
+            <div style="flex: 0 0 120px; width: 120px; margin: 0 auto; text-align: center;">
+                <a href="https://store.shopping.yahoo.co.jp/flow-syouten/4901770777146.html" target="_blank" rel="nofollow"><img src="https://item-shopping.c.yimg.jp/i/g/flow-syouten_4901770777146" alt="ちいかわ ボンボンドロップシール" style="max-width: 100%; max-height: 120px;"></a>
+            </div>
+            <div style="flex: 1; min-width: 200px;">
+                <div style="margin-bottom: 15px;">
+                    <a href="https://store.shopping.yahoo.co.jp/flow-syouten/4901770777146.html" target="_blank" rel="nofollow" style="font-weight: bold; color: #333; text-decoration: none;">正規品 ちいかわ シール モモンガ ボンボンドロップシール S8542929 サンスター文具</a>
+                    <div style="color: #d32f2f; font-size: 13px; margin-top: 5px;">¥2,980〜</div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="https://www.amazon.co.jp/s?k=%E3%81%A1%E3%81%84%E3%81%8B%E3%82%8F%20%E3%83%9C%E3%83%B3%E3%83%9C%E3%83%B3%E3%83%89%E3%83%AD%E3%83%83%E3%83%97%E3%82%B7%E3%83%BC%E3%83%AB&tag=sealmania-22" target="_blank" rel="nofollow" style="flex: 1; text-align: center; background: #ff9900; color: #fff; padding: 10px 0; font-weight: bold; border-radius: 4px; text-decoration: none; font-size: 12px;">Amazon</a>
+                    <a href="https://hb.afl.rakuten.co.jp/hgc/50f17d50.13213066.50f17d51.fed7b043/?pc=https%3A%2F%2Fsearch.rakuten.co.jp%2Fsearch%2Fmall%2F%E3%81%A1%E3%81%84%E3%81%8B%E3%82%8F%20%E3%83%9C%E3%83%B3%E3%83%9C%E3%83%B3%E3%83%89%E3%83%AD%E3%83%83%E3%83%97%E3%82%B7%E3%83%BC%E3%83%AB" target="_blank" rel="nofollow" style="flex: 1; text-align: center; background: #bf0000; color: #fff; padding: 10px 0; font-weight: bold; border-radius: 4px; text-decoration: none; font-size: 12px;">楽天市場</a>
+                    <a href="https://shopping.yahoo.co.jp/search?p=%E3%81%A1%E3%81%84%E3%81%8B%E3%82%8F%20%E3%83%9C%E3%83%B3%E3%83%9C%E3%83%B3%E3%83%89%E3%83%AD%E3%83%83%E3%83%97%E3%82%B7%E3%83%BC%E3%83%AB" target="_blank" rel="nofollow" style="flex: 1; text-align: center; background: #51a7e8; color: #fff; padding: 10px 0; font-weight: bold; border-radius: 4px; text-decoration: none; font-size: 12px;">Yahoo!</a>
+                </div>
+            </div>
+        </div>
         <section class="content-section location-section">
             <h2 class="section-title-blue">場所から探す</h2>
             <?php
@@ -75,7 +91,7 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 4 /* 5から4に変更 */
+                    'posts_per_page' => 4 
                 );
                 $query = new WP_Query($args);
 
@@ -130,7 +146,7 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 4 /* 5から4に変更 */
+                    'posts_per_page' => 4 
                 );
                 $query = new WP_Query($args);
 
@@ -184,7 +200,7 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 4 /* 5から4に変更 */
+                    'posts_per_page' => 4 
                 );
                 $query = new WP_Query($args);
 
@@ -235,7 +251,7 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 4 /* 5から4に変更 */
+                    'posts_per_page' => 4 
                 );
                 $query = new WP_Query($args);
 
@@ -275,7 +291,6 @@ get_header();
             <h2 class="section-title-blue">豆知識</h2>
             <div class="store-grid-wrapper">
                 <?php 
-                /* 豆知識も取得件数を 15 から 4 に変更 */
                 $guide_query = new WP_Query(array('category_name' => 'guide', 'posts_per_page' => 4));
                 if ($guide_query->have_posts()) :
                     while ($guide_query->have_posts()) : $guide_query->the_post(); ?>
@@ -303,7 +318,7 @@ get_header();
 </main>
 
 <style>
-/* ▼ 追加：PCで4列、スマホで2列にして記事を大きく見せる（親テーマの5列設定を上書き） ▼ */
+/* PCで4列、スマホで2列にして記事を大きく見せる（親テーマの5列設定を上書き） */
 .article-grid-4,
 .store-grid-wrapper {
     display: grid !important;
@@ -318,7 +333,6 @@ get_header();
         gap: 10px !important;
     }
 }
-/* ▲ 追加ここまで ▲ */
 
 /* キービジュアルとスライダーの間の余白を極限まで狭くする */
 .main-visual-area {
