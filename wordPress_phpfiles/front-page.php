@@ -75,39 +75,40 @@ get_header();
                 
                 $args = array(
                     'category_name'  => $slug,
-                    'posts_per_page' => 5
+                    'posts_per_page' => 4
                 );
                 $query = new WP_Query($args);
+
+                if ($query->have_posts()) :
             ?>
             <div class="region-block">
                 <h3 class="sub-title-pink"><?php echo esc_html($region_name); ?></h3>
-                <?php if ($query->have_posts()) : ?>
-                    <div class="article-grid-5">
-                        <?php while ($query->have_posts()) : $query->the_post(); ?>
-                            <div class="grid-item-wrap">
-                                <a href="<?php the_permalink(); ?>" class="img-only-link">
-                                    <?php if (has_post_thumbnail()) : ?>
-                                        <?php the_post_thumbnail('medium'); ?>
-                                    <?php else : ?>
-                                        <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                                    <?php endif; ?>
-                                </a>
-                                <a href="<?php the_permalink(); ?>" class="title-only-link">
-                                    <div class="safe-post-title">
-                                        <?php echo esc_html(get_the_title()); ?>
-                                    </div>
-                                </a>
-                            </div>
-                        <?php endwhile; wp_reset_postdata(); ?>
-                    </div>
-                    <?php if ($cat) : ?>
-                        <div class="more-link-wrap"><a href="<?php echo esc_url($region_link); ?>" class="more-link">もっと見る＞</a></div>
-                    <?php endif; ?>
-                <?php else : ?>
-                    <div class="no-posts-message">記事準備中です＞＜<br>更新されるまでお待ちください</div>
+                <div class="article-grid-5">
+                    <?php while ($query->have_posts()) : $query->the_post(); ?>
+                        <div class="grid-item-wrap">
+                            <a href="<?php the_permalink(); ?>" class="img-only-link">
+                                <?php if (has_post_thumbnail()) : ?>
+                                    <?php the_post_thumbnail('medium'); ?>
+                                <?php else : ?>
+                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
+                                <?php endif; ?>
+                            </a>
+                            <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                <div class="safe-post-title">
+                                    <?php echo esc_html(get_the_title()); ?>
+                                </div>
+                            </a>
+                        </div>
+                    <?php endwhile; wp_reset_postdata(); ?>
+                </div>
+                <?php if ($cat) : ?>
+                    <div class="more-link-wrap"><a href="<?php echo esc_url($region_link); ?>" class="more-link">もっと見る＞</a></div>
                 <?php endif; ?>
             </div>
-            <?php endforeach; ?>
+            <?php 
+                endif; 
+            endforeach; 
+            ?>
         </section>
 
         <section class="content-section store-section">
@@ -132,44 +133,67 @@ get_header();
                     'posts_per_page' => 5
                 );
                 $query = new WP_Query($args);
+
+                if ($query->have_posts()) :
             ?>
             <div class="region-block">
                 <h3 class="sub-title-pink"><?php echo esc_html($store_name); ?></h3>
-                <?php if ($query->have_posts()) : ?>
-                    <div class="article-grid-5">
-                        <?php while ($query->have_posts()) : $query->the_post(); ?>
-                            <div class="grid-item-wrap">
-                                <a href="<?php the_permalink(); ?>" class="img-only-link">
-                                    <?php if (has_post_thumbnail()) : ?>
-                                        <?php the_post_thumbnail('medium'); ?>
-                                    <?php else : ?>
-                                        <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                                    <?php endif; ?>
-                                </a>
-                                <a href="<?php the_permalink(); ?>" class="title-only-link">
-                                    <div class="safe-post-title">
-                                        <?php echo esc_html(get_the_title()); ?>
-                                    </div>
-                                </a>
-                            </div>
-                        <?php endwhile; wp_reset_postdata(); ?>
-                    </div>
-                    <?php if ($cat) : ?>
-                        <div class="more-link-wrap"><a href="<?php echo esc_url($store_link); ?>" class="more-link">もっと見る＞</a></div>
-                    <?php endif; ?>
-                <?php else : ?>
-                    <div class="no-posts-message">記事準備中です＞＜<br>更新されるまでお待ちください</div>
+                <div class="article-grid-5">
+                    <?php while ($query->have_posts()) : $query->the_post(); ?>
+                        <div class="grid-item-wrap">
+                            <a href="<?php the_permalink(); ?>" class="img-only-link">
+                                <?php if (has_post_thumbnail()) : ?>
+                                    <?php the_post_thumbnail('medium'); ?>
+                                <?php else : ?>
+                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
+                                <?php endif; ?>
+                            </a>
+                            <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                <div class="safe-post-title">
+                                    <?php echo esc_html(get_the_title()); ?>
+                                </div>
+                            </a>
+                        </div>
+                    <?php endwhile; wp_reset_postdata(); ?>
+                </div>
+                <?php if ($cat) : ?>
+                    <div class="more-link-wrap"><a href="<?php echo esc_url($store_link); ?>" class="more-link">もっと見る＞</a></div>
                 <?php endif; ?>
             </div>
-            <?php endforeach; ?>
+            <?php 
+                endif; 
+            endforeach; 
+            ?>
         </section>
+
         <section class="content-section character-section">
             <h2 class="section-title-blue">キャラクターから探す</h2>
-            <div class="store-grid-wrapper">
-                <?php 
-                $char_query = new WP_Query(array('category_name' => 'character', 'posts_per_page' => 15));
-                if ($char_query->have_posts()) :
-                    while ($char_query->have_posts()) : $char_query->the_post(); ?>
+            <?php
+            $characters = [
+                'ディズニー' => 'disney',
+                'サンリオ' => 'sanrio',
+                'たまごっち' => 'tamagotchi',
+                'しずくちゃん' => 'shizukuchan',
+                'ちいかわ' => 'chiikawa',
+                'その他' => 'other-character',
+            ];
+
+            foreach ($characters as $char_name => $slug) :
+                $cat = get_category_by_slug($slug);
+                $char_link = $cat ? get_category_link($cat->term_id) : '#';
+                
+                $args = array(
+                    'category_name'  => $slug,
+                    'posts_per_page' => 5
+                );
+                $query = new WP_Query($args);
+
+                if ($query->have_posts()) :
+            ?>
+            <div class="region-block">
+                <h3 class="sub-title-pink"><?php echo esc_html($char_name); ?></h3>
+                <div class="article-grid-5">
+                    <?php while ($query->have_posts()) : $query->the_post(); ?>
                         <div class="grid-item-wrap">
                             <a href="<?php the_permalink(); ?>" class="img-only-link">
                                 <?php if (has_post_thumbnail()) : ?>
@@ -184,18 +208,42 @@ get_header();
                                 </div>
                             </a>
                         </div>
-                    <?php endwhile; wp_reset_postdata();
-                endif; ?>
+                    <?php endwhile; wp_reset_postdata(); ?>
+                </div>
+                <?php if ($cat) : ?>
+                    <div class="more-link-wrap"><a href="<?php echo esc_url($char_link); ?>" class="more-link">もっと見る＞</a></div>
+                <?php endif; ?>
             </div>
+            <?php 
+                endif; 
+            endforeach; 
+            ?>
         </section>
-
         <section class="content-section news-section">
             <h2 class="section-title-blue">入荷/抽選情報</h2>
-            <div class="store-grid-wrapper">
-                <?php 
-                $news_query = new WP_Query(array('category_name' => 'news', 'posts_per_page' => 15));
-                if ($news_query->have_posts()) :
-                    while ($news_query->have_posts()) : $news_query->the_post(); ?>
+            <?php
+            $news_categories = [
+                '今月の新作' => 'new-item',
+                '抽選・予約情報' => 'reservation',
+                'オンライン通販' => 'online',
+            ];
+
+            foreach ($news_categories as $news_name => $slug) :
+                $cat = get_category_by_slug($slug);
+                $news_link = $cat ? get_category_link($cat->term_id) : '#';
+                
+                $args = array(
+                    'category_name'  => $slug,
+                    'posts_per_page' => 5
+                );
+                $query = new WP_Query($args);
+
+                if ($query->have_posts()) :
+            ?>
+            <div class="region-block">
+                <h3 class="sub-title-pink"><?php echo esc_html($news_name); ?></h3>
+                <div class="article-grid-5">
+                    <?php while ($query->have_posts()) : $query->the_post(); ?>
                         <div class="grid-item-wrap">
                             <a href="<?php the_permalink(); ?>" class="img-only-link">
                                 <?php if (has_post_thumbnail()) : ?>
@@ -210,11 +258,17 @@ get_header();
                                 </div>
                             </a>
                         </div>
-                    <?php endwhile; wp_reset_postdata();
-                endif; ?>
+                    <?php endwhile; wp_reset_postdata(); ?>
+                </div>
+                <?php if ($cat) : ?>
+                    <div class="more-link-wrap"><a href="<?php echo esc_url($news_link); ?>" class="more-link">もっと見る＞</a></div>
+                <?php endif; ?>
             </div>
+            <?php 
+                endif; 
+            endforeach; 
+            ?>
         </section>
-
         <section class="content-section guide-section">
             <h2 class="section-title-blue">豆知識</h2>
             <div class="store-grid-wrapper">
