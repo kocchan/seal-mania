@@ -34,15 +34,20 @@ get_header();
                     if ($popular_query->have_posts()) :
                         while ($popular_query->have_posts()) : $popular_query->the_post(); ?>
                             <div class="slider-item">
-                                <a href="<?php the_permalink(); ?>" class="slider-link">
+                                <a href="<?php the_permalink(); ?>" class="img-only-link">
                                     <div class="slider-img-wrap">
                                         <?php if (has_post_thumbnail()) : ?>
                                             <?php the_post_thumbnail('medium'); ?>
                                         <?php else : ?>
-                                            <div class="article-placeholder">No Image</div>
+                                            <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
                                         <?php endif; ?>
                                     </div>
-                                    <h3 class="slider-post-title"><?php the_title(); ?></h3>
+                                </a>
+                                
+                                <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                    <div class="safe-post-title">
+                                        <?php echo esc_html(get_the_title()); ?>
+                                    </div>
                                 </a>
                             </div>
                         <?php endwhile; wp_reset_postdata();
@@ -79,13 +84,20 @@ get_header();
                 <?php if ($query->have_posts()) : ?>
                     <div class="article-grid-5">
                         <?php while ($query->have_posts()) : $query->the_post(); ?>
-                            <a href="<?php the_permalink(); ?>" class="article-item">
-                                <?php if (has_post_thumbnail()) : ?>
-                                    <?php the_post_thumbnail('medium'); ?>
-                                <?php else : ?>
-                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                                <?php endif; ?>
-                            </a>
+                            <div class="grid-item-wrap">
+                                <a href="<?php the_permalink(); ?>" class="img-only-link">
+                                    <?php if (has_post_thumbnail()) : ?>
+                                        <?php the_post_thumbnail('medium'); ?>
+                                    <?php else : ?>
+                                        <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
+                                    <?php endif; ?>
+                                </a>
+                                <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                    <div class="safe-post-title">
+                                        <?php echo esc_html(get_the_title()); ?>
+                                    </div>
+                                </a>
+                            </div>
                         <?php endwhile; wp_reset_postdata(); ?>
                     </div>
                     <?php if ($cat) : ?>
@@ -105,13 +117,20 @@ get_header();
                 $store_query = new WP_Query(array('category_name' => 'store', 'posts_per_page' => 15));
                 if ($store_query->have_posts()) :
                     while ($store_query->have_posts()) : $store_query->the_post(); ?>
-                        <a href="<?php the_permalink(); ?>" class="article-item">
-                            <?php if (has_post_thumbnail()) : ?>
-                                <?php the_post_thumbnail('medium'); ?>
-                            <?php else : ?>
-                                <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                            <?php endif; ?>
-                        </a>
+                        <div class="grid-item-wrap">
+                            <a href="<?php the_permalink(); ?>" class="img-only-link">
+                                <?php if (has_post_thumbnail()) : ?>
+                                    <?php the_post_thumbnail('medium'); ?>
+                                <?php else : ?>
+                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
+                                <?php endif; ?>
+                            </a>
+                            <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                <div class="safe-post-title">
+                                    <?php echo esc_html(get_the_title()); ?>
+                                </div>
+                            </a>
+                        </div>
                     <?php endwhile; wp_reset_postdata();
                 endif; ?>
             </div>
@@ -124,13 +143,20 @@ get_header();
                 $char_query = new WP_Query(array('category_name' => 'character', 'posts_per_page' => 15));
                 if ($char_query->have_posts()) :
                     while ($char_query->have_posts()) : $char_query->the_post(); ?>
-                        <a href="<?php the_permalink(); ?>" class="article-item">
-                            <?php if (has_post_thumbnail()) : ?>
-                                <?php the_post_thumbnail('medium'); ?>
-                            <?php else : ?>
-                                <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                            <?php endif; ?>
-                        </a>
+                        <div class="grid-item-wrap">
+                            <a href="<?php the_permalink(); ?>" class="img-only-link">
+                                <?php if (has_post_thumbnail()) : ?>
+                                    <?php the_post_thumbnail('medium'); ?>
+                                <?php else : ?>
+                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
+                                <?php endif; ?>
+                            </a>
+                            <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                <div class="safe-post-title">
+                                    <?php echo esc_html(get_the_title()); ?>
+                                </div>
+                            </a>
+                        </div>
                     <?php endwhile; wp_reset_postdata();
                 endif; ?>
             </div>
@@ -143,13 +169,20 @@ get_header();
                 $news_query = new WP_Query(array('category_name' => 'news', 'posts_per_page' => 15));
                 if ($news_query->have_posts()) :
                     while ($news_query->have_posts()) : $news_query->the_post(); ?>
-                        <a href="<?php the_permalink(); ?>" class="article-item">
-                            <?php if (has_post_thumbnail()) : ?>
-                                <?php the_post_thumbnail('medium'); ?>
-                            <?php else : ?>
-                                <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                            <?php endif; ?>
-                        </a>
+                        <div class="grid-item-wrap">
+                            <a href="<?php the_permalink(); ?>" class="img-only-link">
+                                <?php if (has_post_thumbnail()) : ?>
+                                    <?php the_post_thumbnail('medium'); ?>
+                                <?php else : ?>
+                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
+                                <?php endif; ?>
+                            </a>
+                            <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                <div class="safe-post-title">
+                                    <?php echo esc_html(get_the_title()); ?>
+                                </div>
+                            </a>
+                        </div>
                     <?php endwhile; wp_reset_postdata();
                 endif; ?>
             </div>
@@ -162,13 +195,20 @@ get_header();
                 $guide_query = new WP_Query(array('category_name' => 'guide', 'posts_per_page' => 15));
                 if ($guide_query->have_posts()) :
                     while ($guide_query->have_posts()) : $guide_query->the_post(); ?>
-                        <a href="<?php the_permalink(); ?>" class="article-item">
-                            <?php if (has_post_thumbnail()) : ?>
-                                <?php the_post_thumbnail('medium'); ?>
-                            <?php else : ?>
-                                <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
-                            <?php endif; ?>
-                        </a>
+                        <div class="grid-item-wrap">
+                            <a href="<?php the_permalink(); ?>" class="img-only-link">
+                                <?php if (has_post_thumbnail()) : ?>
+                                    <?php the_post_thumbnail('medium'); ?>
+                                <?php else : ?>
+                                    <div class="article-placeholder"><span class="no-image-title"><?php the_title(); ?></span></div>
+                                <?php endif; ?>
+                            </a>
+                            <a href="<?php the_permalink(); ?>" class="title-only-link">
+                                <div class="safe-post-title">
+                                    <?php echo esc_html(get_the_title()); ?>
+                                </div>
+                            </a>
+                        </div>
                     <?php endwhile; wp_reset_postdata();
                 endif; ?>
             </div>
@@ -179,6 +219,66 @@ get_header();
 </main>
 
 <style>
+/* ▼ 変更：分離したリンクとタイトルの確実なスタイル（テーマCSSのリセット含む） ▼ */
+
+/* サムネイル画像用のリンク（比率を維持） */
+.img-only-link {
+    display: block !important;
+    text-decoration: none !important;
+    aspect-ratio: 16 / 9 !important; /* 画像部分は16:9を維持 */
+    overflow: hidden !important;
+    border-radius: 8px !important;
+    background-color: #f5f5f5 !important;
+}
+
+.img-only-link img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+}
+
+/* タイトル用のリンク（比率や背景色を無効化） */
+.title-only-link {
+    display: block !important;
+    text-decoration: none !important;
+    margin-top: 8px !important;
+    aspect-ratio: auto !important; /* カスタマイズCSSの16:9を上書き */
+    background-color: transparent !important; /* カスタマイズCSSのグレーを上書き */
+    padding: 0 !important;
+    height: auto !important;
+}
+
+/* タイトルテキスト本体 */
+.safe-post-title {
+    font-size: 13px !important;
+    color: #333 !important;
+    line-height: 1.5 !important;
+    font-weight: bold !important;
+    text-align: left !important;
+    /* 2行制限 */
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    height: 3em !important; 
+    /* テーマ側のあらゆる非表示設定を無効化 */
+    visibility: visible !important;
+    opacity: 1 !important;
+    text-indent: 0 !important;
+    white-space: normal !important;
+    word-break: break-all !important;
+    background: transparent !important;
+}
+
+/* グリッドレイアウト用のラッパー */
+.grid-item-wrap {
+    display: flex;
+    flex-direction: column;
+}
+/* ▲ 変更ここまで ▲ */
+
+
 /* スライダー全体のコンテナ：画面幅いっぱいに広げる */
 .popular-section-full {
     width: 100vw;
@@ -214,33 +314,12 @@ get_header();
     flex-direction: column;
 }
 
-.slider-link {
-    text-decoration: none;
-    display: block;
-}
-
 .slider-img-wrap img {
     width: 100%;
     height: auto;
     border-radius: 12px;
     display: block;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-/* タイトルのスタイル：2行制限と三点リーダー */
-.slider-post-title {
-    font-size: 14px;
-    line-height: 1.5;
-    margin-top: 10px;
-    color: #333;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2; /* 2行で制限 */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: bold;
-    text-align: left;
-    height: 3em; /* 2行分の高さを確保してドットの位置を揃える */
 }
 
 /* PC表示の調整 */
