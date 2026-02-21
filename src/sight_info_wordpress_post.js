@@ -1,16 +1,17 @@
 import 'dotenv/config';
 import axios from 'axios';
-import * as fs from 'fs';
-import * as path from 'path';
 import { ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { dbClient, getNowJST } from "./utils.js";
+import { GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3"; // 📍追加: S3操作用
+import { dbClient, s3Client, getNowJST } from "./utils.js"; // 📍変更: s3Clientを追加
 import { CONFIG } from "./config.js";
 import { fileURLToPath } from 'url';
 
+// 📍変更: ローカルディレクトリ設定を削除し、S3設定を追加
 const APP_CONFIG = {
     tableName: "Articles",
     waitMs: 2000,
-    imageDir: "./data" // 生成された画像の読み込み先
+    s3BucketName: process.env.S3_BUCKET_NAME || "seal-mania",
+    s3Prefix: "sight-info-image/"
 };
 
 // =====================================
@@ -32,22 +33,20 @@ const PREF_ROMAJI_MAP = {
 async function getEnglishCityName(cityStr) {
     if (!cityStr || cityStr === "unknown") return "unknown";
     try {
-        // Google翻訳の簡易APIを利用して「四日市市」→「Yokkaichi City」等に変換
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(cityStr)}`;
         const res = await axios.get(url);
         let englishName = res.data[0][0][0];
 
-        // 小文字化し、「city」「ward(区)」「town(町)」などを除去してスッキリさせる
         englishName = englishName.toLowerCase()
-            .replace(/\b(city|ward|town|village|prefecture)\b/g, '') // CityやWardを削除
+            .replace(/\b(city|ward|town|village|prefecture)\b/g, '')
             .trim()
-            .replace(/[^a-z0-9]+/g, '-') // 空白や記号をハイフンに置換
-            .replace(/^-|-$/g, '');     // 先頭や末尾のハイフンを除去
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '');
 
         return englishName || "unknown";
     } catch (error) {
         console.error(`      ⚠️ 市区町村の英語化失敗 (${cityStr}):`, error.message);
-        return "unknown"; // 失敗時はunknownを返す
+        return "unknown";
     }
 }
 
@@ -197,35 +196,57 @@ class WordPressService {
         this.auth = Buffer.from(`${WP_USER}:${WP_APP_PASSWORD}`).toString('base64');
     }
 
+    // 📍変更: S3から画像を直接取得してWPへアップロード
     async uploadImage(tweetId) {
         if (!tweetId) return null;
-        const filePath = path.join(APP_CONFIG.imageDir, `${tweetId}.png`);
-        if (!fs.existsSync(filePath)) return null;
+        const s3Key = `${APP_CONFIG.s3Prefix}${tweetId}.png`;
+
         try {
-            console.log(`      🖼️ 画像アップロード中: ${tweetId}.png`);
-            const response = await axios.post(`${this.apiUrl}/media`, fs.readFileSync(filePath), {
+            console.log(`      📥 S3から画像取得中: s3://${APP_CONFIG.s3BucketName}/${s3Key}`);
+
+            // S3からオブジェクトを取得
+            const response = await s3Client.send(new GetObjectCommand({
+                Bucket: APP_CONFIG.s3BucketName,
+                Key: s3Key
+            }));
+
+            // AWS SDK v3のストリームをBufferに変換
+            const imageBuffer = Buffer.from(await response.Body.transformToByteArray());
+
+            console.log(`      🖼️ WPへ画像アップロード中: ${tweetId}.png`);
+            // Bufferを使ってWordPressにアップロード
+            const wpResponse = await axios.post(`${this.apiUrl}/media`, imageBuffer, {
                 headers: {
                     'Authorization': `Basic ${this.auth}`,
                     'Content-Type': 'image/png',
                     'Content-Disposition': `attachment; filename="${tweetId}.png"`
                 }
             });
-            return response.data.id;
+            return wpResponse.data.id;
+
         } catch (error) {
-            console.error(`      ❌ 画像アップロード失敗: ${error.message}`);
+            // S3に画像がない場合のエラーハンドリング
+            if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+                console.log(`      ⚠️ S3に画像が存在しません (${s3Key})`);
+            } else {
+                console.error(`      ❌ 画像アップロード失敗: ${error.message}`);
+            }
             return null;
         }
     }
 
-    async deleteLocalImage(tweetId) {
-        const filePath = path.join(APP_CONFIG.imageDir, `${tweetId}.png`);
-        if (fs.existsSync(filePath)) {
-            try {
-                fs.unlinkSync(filePath);
-                console.log(`      🗑️ ローカル画像を削除しました: ${tweetId}.png`);
-            } catch (err) {
-                console.error(`      ⚠️ 削除失敗: ${err.message}`);
-            }
+    // 📍変更: ローカル削除ではなくS3上の画像を削除
+    async deleteS3Image(tweetId) {
+        if (!tweetId) return;
+        const s3Key = `${APP_CONFIG.s3Prefix}${tweetId}.png`;
+        try {
+            await s3Client.send(new DeleteObjectCommand({
+                Bucket: APP_CONFIG.s3BucketName,
+                Key: s3Key
+            }));
+            console.log(`      🗑️ S3画像を削除しました: ${s3Key}`);
+        } catch (err) {
+            console.error(`      ⚠️ S3画像削除失敗: ${err.message}`);
         }
     }
 
@@ -261,13 +282,8 @@ class WordPressService {
         if (data.product_name) { const tag2 = await this.getOrCreateTag(data.product_name); if (tag2) tags.push(tag2); }
 
         const prefRomaji = PREF_ROMAJI_MAP[data.prefecture] || "unknown";
-
-        // 📍 ここで市町村名を英語化！
         const englishCityStr = await getEnglishCityName(data.city);
-
         const dateStr = data.sighting_time ? data.sighting_time.substring(0, 10) : "unknown-date";
-
-        // 📍 英語化された市町村名を使ったスラッグ
         const customSlug = `sight-info-${prefRomaji}-${englishCityStr}-${dateStr}`;
 
         const payload = {
@@ -335,7 +351,9 @@ async function main() {
         const result = await wpService.postArticle(article);
         if (result?.id) {
             await DBService.markAsPosted(article.source_url, result.id);
-            await wpService.deleteLocalImage(article.source_tweet_id);
+
+            // 📍変更: S3の画像を削除するメソッドを呼び出す
+            await wpService.deleteS3Image(article.source_tweet_id);
         }
         await new Promise(res => setTimeout(res, APP_CONFIG.waitMs));
     }

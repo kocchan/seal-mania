@@ -1,19 +1,18 @@
 import 'dotenv/config';
-import * as fs from 'fs';
-import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { dbClient } from "./utils.js";
+import { PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { dbClient, s3Client } from "./utils.js";
 import { CONFIG } from "./config.js";
 import { GoogleGenAI } from "@google/genai";
 
 // 設定
 const APP_CONFIG = {
     tableName: "Articles",
-    outputDir: "./data",
+    s3BucketName: process.env.S3_BUCKET_NAME || "seal-mania", // ← バケット名のみ
+    s3Prefix: "sight-info-image/", // ← フォルダ名（最後にスラッシュが必要です）
     waitMs: 3000
 };
-
 // 地方ごとの枠線カラー設定
 const REGION_COLORS = {
     863: "#4FC3F7", // 北海道・東北 (明るい水色)
@@ -48,11 +47,6 @@ class ImageGenerator {
             throw new Error('❌ エラー: .envに GEMINI_API_KEY が不足しています');
         }
         this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-        // 保存先ディレクトリが存在しない場合は作成
-        if (!fs.existsSync(APP_CONFIG.outputDir)) {
-            fs.mkdirSync(APP_CONFIG.outputDir, { recursive: true });
-        }
     }
 
     /**
@@ -68,7 +62,7 @@ class ImageGenerator {
     }
 
     /**
-     * Gemini APIを呼び出して画像を生成・保存
+     * Gemini APIを呼び出してS3に保存
      */
     async generateAndSaveImage(article) {
         // プロンプトに埋め込むための変数を準備
@@ -116,17 +110,24 @@ class ImageGenerator {
                 }
             });
 
-            // Base64データを抽出してファイルに保存
+            // Base64データを抽出
             const part = response.candidates[0].content.parts.find(p => p.inlineData);
             if (part && part.inlineData) {
                 const imageData = part.inlineData.data;
                 const buffer = Buffer.from(imageData, "base64");
 
                 const fileName = `${article.source_tweet_id}.png`;
-                const filePath = path.join(APP_CONFIG.outputDir, fileName);
+                const s3Key = `${APP_CONFIG.s3Prefix}${fileName}`;
 
-                fs.writeFileSync(filePath, buffer);
-                console.log(`   ✅ 保存完了: ${filePath}`);
+                // S3へアップロード
+                await s3Client.send(new PutObjectCommand({
+                    Bucket: APP_CONFIG.s3BucketName,
+                    Key: s3Key,
+                    Body: buffer,
+                    ContentType: "image/png"
+                }));
+
+                console.log(`   ✅ S3保存完了: s3://${APP_CONFIG.s3BucketName}/${s3Key}`);
                 return true;
             } else {
                 console.warn(`   ⚠️ 画像データが見つかりませんでした (${article.source_tweet_id})`);
@@ -134,7 +135,7 @@ class ImageGenerator {
             }
 
         } catch (error) {
-            console.error(`   ❌ 画像生成エラー (${article.source_tweet_id}):`, error.message);
+            console.error(`   ❌ 画像生成/S3保存エラー (${article.source_tweet_id}):`, error.message);
             return false;
         }
     }
@@ -165,11 +166,23 @@ async function main() {
             continue;
         }
 
-        // 既に画像が存在する場合はスキップ（再実行時の時短用）
-        const expectedFilePath = path.join(APP_CONFIG.outputDir, `${article.source_tweet_id}.png`);
-        if (fs.existsSync(expectedFilePath)) {
-            console.log(`⏩ 既に画像が存在するためスキップ: ${expectedFilePath}`);
-            continue;
+        const fileName = `${article.source_tweet_id}.png`;
+        const s3Key = `${APP_CONFIG.s3Prefix}${fileName}`;
+
+        // 既にS3に画像が存在するかチェック（再実行時の時短用）
+        try {
+            await s3Client.send(new HeadObjectCommand({
+                Bucket: APP_CONFIG.s3BucketName,
+                Key: s3Key
+            }));
+            console.log(`⏩ 既にS3に画像が存在するためスキップ: s3://${APP_CONFIG.s3BucketName}/${s3Key}`);
+            continue; // 存在する場合は次の記事へ
+        } catch (error) {
+            // オブジェクトが存在しない場合は404エラーが返るため、それ以外のエラーの場合はスキップ
+            if (error.name !== "NotFound" && error.$metadata?.httpStatusCode !== 404) {
+                console.error(`⚠️ S3確認中にエラーが発生したためスキップ (${s3Key}):`, error.message);
+                continue;
+            }
         }
 
         console.log(`\n[${i + 1}/${articles.length}] 処理中...`);
@@ -179,7 +192,7 @@ async function main() {
         await new Promise(res => setTimeout(res, APP_CONFIG.waitMs));
     }
 
-    console.log("\n✅ 全ての画像生成が完了しました！");
+    console.log("\n✅ 全ての画像生成とS3への保存が完了しました！");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
